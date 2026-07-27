@@ -9,15 +9,15 @@ export default function ContactPage() {
       <div className="contact-copy">
         <span className="kicker">Let’s talk cards</span>
         <h1>Questions, trades,<br /><em>or a card hunt?</em></h1>
-        <p>We’re always happy to help. WhatsApp is the quickest way to reach Taym Shop.</p>
+        <p>We’re always happy to help. WhatsApp is the quickest way to reach TGMAX.</p>
         <div className="contact-list">
-          <a href={whatsapp("Hi Taym Shop! I have a question.")} target="_blank" rel="noreferrer"><span>◔</span><div><small>WhatsApp</small><b>+961 71 234 567</b></div><i>→</i></a>
+          <a href={whatsapp("Hi TGMAX! I have a question.")} target="_blank" rel="noreferrer"><span>◔</span><div><small>WhatsApp</small><b>+961 71 234 567</b></div><i>→</i></a>
           <div><span>⌖</span><div><small>Based in</small><b>Beirut, Lebanon</b></div></div>
           <div><span>◷</span><div><small>Reply time</small><b>Usually within an hour</b></div></div>
         </div>
       </div>
       <div className="contact-card">
-        <div className="contact-card-top"><span>T</span><div><b>TAYM SHOP</b><small>Collect · Trade · Connect</small></div></div>
+        <div className="contact-card-top"><span>TG</span><div><b>TGMAX</b><small>Collect · Trade · Connect</small></div></div>
         <h2>What can we help with?</h2>
         <div className="topic-list">
           <a href={whatsapp("Hi! I want to buy a card.")} target="_blank" rel="noreferrer"><b>Buy a card</b><span>Check availability and order →</span></a>

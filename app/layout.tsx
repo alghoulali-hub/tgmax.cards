@@ -6,17 +6,17 @@ const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 const mono = Geist_Mono({ variable: "--font-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Taym Shop — Collect. Trade. Connect.",
+  title: "TGMAX — Collect. Trade. Connect.",
   description: "Trading cards in Beirut: Pokémon, FIFA, Yu-Gi-Oh!, One Piece and more.",
   openGraph: {
-    title: "Taym Shop — Great cards. Better stories.",
-    description: "Collect, trade, and connect with Taym Shop in Beirut.",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Taym Shop trading cards" }],
+    title: "TGMAX — Great cards. Better stories.",
+    description: "Collect, trade, and connect with TGMAX in Beirut.",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "TGMAX trading cards" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Taym Shop — Great cards. Better stories.",
-    description: "Collect, trade, and connect with Taym Shop in Beirut.",
+    title: "TGMAX — Great cards. Better stories.",
+    description: "Collect, trade, and connect with TGMAX in Beirut.",
     images: ["/og.png"],
   },
 };

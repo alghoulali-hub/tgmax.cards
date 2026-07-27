@@ -17,7 +17,7 @@ export default function WantedPage() {
 
   function sendRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const message = `Hi Taym Shop! I’m looking for a ${category} card: ${cardName}.${details ? ` Details: ${details}` : ""}`;
+    const message = `Hi TGMAX! I’m looking for a ${category} card: ${cardName}.${details ? ` Details: ${details}` : ""}`;
     window.open(whatsapp(message), "_blank", "noopener,noreferrer");
   }
 
@@ -32,7 +32,7 @@ export default function WantedPage() {
       {needs.map(([series, title, details, status, tone]) => <article className={`wanted-card ${tone}`} key={title}>
         <span className="series">{series}</span><div className="wanted-symbol">◎</div>
         <h2>{title}</h2><p>{details}</p><span className="status">{status}</span>
-        <a href={whatsapp(`Hi Taym Shop! I have ${title}. I can send photos and details.`)} target="_blank" rel="noreferrer">I have this card →</a>
+        <a href={whatsapp(`Hi TGMAX! I have ${title}. I can send photos and details.`)} target="_blank" rel="noreferrer">I have this card →</a>
       </article>)}
     </section>
     <section className="card-request">
@@ -57,7 +57,7 @@ export default function WantedPage() {
         <small>This opens WhatsApp with your request ready to send.</small>
       </form>
     </section>
-    <section className="sell-cta"><div><span className="kicker">Not on the list?</span><h2>Show us what you have.</h2><p>Send photos of your cards on WhatsApp and we’ll get back to you with an offer.</p></div><a href={whatsapp("Hi Taym Shop! I have some cards I’d like to sell or trade.")} target="_blank" rel="noreferrer">Send your cards →</a></section>
+    <section className="sell-cta"><div><span className="kicker">Not on the list?</span><h2>Show us what you have.</h2><p>Send photos of your cards on WhatsApp and we’ll get back to you with an offer.</p></div><a href={whatsapp("Hi TGMAX! I have some cards I’d like to sell or trade.")} target="_blank" rel="noreferrer">Send your cards →</a></section>
     <Footer />
   </main>;
 }

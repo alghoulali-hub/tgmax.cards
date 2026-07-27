@@ -16,9 +16,9 @@ const products = [
 
 export function Brand() {
   return (
-    <Link className="brand" href="/" aria-label="Taym Shop home">
-      <span className="brand-mark"><span>T</span></span>
-      <span className="brand-name">TAYM <b>SHOP</b></span>
+    <Link className="brand" href="/" aria-label="TGMAX home">
+      <span className="brand-mark"><span>TG</span></span>
+      <span className="brand-name">TG<b>MAX</b></span>
     </Link>
   );
 }
@@ -51,7 +51,7 @@ function CardArt({ item }: { item: (typeof products)[number] }) {
       <div className="orb"><span>{item.icon}</span></div>
       <div className="card-copy">
         <b>{item.series} collector card</b>
-        <small>Premium finish · Taym verified</small>
+        <small>Premium finish · TGMAX verified</small>
       </div>
       <div className="code">{item.code}</div>
     </div>
@@ -105,7 +105,7 @@ export function ShopHome() {
                 <div className="price-row"><strong>${item.price}.00</strong><span>Near mint</span></div>
                 <div className="card-actions">
                   <button onClick={() => setCart([...cart, item.id])}>Add to bag</button>
-                  <a href={whatsapp(`Hi Taym Shop! Is the ${item.title} card still available?`)} target="_blank" rel="noreferrer" aria-label={`Ask about ${item.title} on WhatsApp`}>↗</a>
+                  <a href={whatsapp(`Hi TGMAX! Is the ${item.title} card still available?`)} target="_blank" rel="noreferrer" aria-label={`Ask about ${item.title} on WhatsApp`}>↗</a>
                 </div>
               </div>
             </article>
@@ -115,7 +115,7 @@ export function ShopHome() {
 
       <section className="whatsapp-band">
         <div><span className="wa-icon">◔</span><div><b>Looking for a specific card?</b><p>Send us your list and we’ll help you find it.</p></div></div>
-        <a href={whatsapp("Hi Taym Shop! I’m looking for a specific trading card.")} target="_blank" rel="noreferrer">Chat on WhatsApp →</a>
+        <a href={whatsapp("Hi TGMAX! I’m looking for a specific trading card.")} target="_blank" rel="noreferrer">Chat on WhatsApp →</a>
       </section>
       <Footer />
 
@@ -126,7 +126,7 @@ export function ShopHome() {
           {cart.length === 0 ? <p className="empty">Your bag is waiting for a great card.</p> :
             <div className="bag-list">{cart.map((id, index) => { const p = products.find((x) => x.id === id)!; return <div key={`${id}-${index}`}><span>{p.title}<small>{p.series}</small></span><b>${p.price}</b><button onClick={() => setCart(cart.filter((_, i) => i !== index))}>×</button></div>; })}</div>}
           <div className="bag-total"><span>Total</span><b>${total}.00</b></div>
-          <a className="checkout" href={whatsapp(`Hi Taym Shop! I’d like to order: ${cart.map((id) => products.find((p) => p.id === id)?.title).join(", ")}. Total: $${total}.`)} target="_blank" rel="noreferrer">Order on WhatsApp</a>
+          <a className="checkout" href={whatsapp(`Hi TGMAX! I’d like to order: ${cart.map((id) => products.find((p) => p.id === id)?.title).join(", ")}. Total: $${total}.`)} target="_blank" rel="noreferrer">Order on WhatsApp</a>
         </aside>
       </div>}
     </main>
@@ -134,7 +134,7 @@ export function ShopHome() {
 }
 
 export function Footer() {
-  return <footer><Brand /><p>Trading good cards and great stories.</p><div><a href={whatsapp("Hi Taym Shop!")} target="_blank" rel="noreferrer">WhatsApp</a><Link href="/contact">Contact</Link></div><small>© 2026 Taym Shop. All rights reserved.</small></footer>;
+  return <footer><Brand /><p>Trading good cards and great stories.</p><div><a href={whatsapp("Hi TGMAX!")} target="_blank" rel="noreferrer">WhatsApp</a><Link href="/contact">Contact</Link></div><small>© 2026 TGMAX. All rights reserved.</small></footer>;
 }
 
 export { phone, whatsapp };
