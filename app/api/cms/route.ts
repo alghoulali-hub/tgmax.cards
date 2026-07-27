@@ -34,13 +34,14 @@ function slugify(value: string) {
 export async function GET() {
   const auth = await authorize();
   if ("error" in auth) return auth.error;
-  const [{ data: categories, error: categoriesError }, { data: cards, error: cardsError }, { data: users, error: usersError }, { data: options, error: optionsError }] = await Promise.all([
+  const [{ data: categories, error: categoriesError }, { data: cards, error: cardsError }, { data: users, error: usersError }, { data: options, error: optionsError }, { data: wantedCards, error: wantedError }] = await Promise.all([
     auth.admin.from("categories").select("*").order("name"),
     auth.admin.from("cards").select("*,categories(name)").order("updated_at", { ascending: false }),
     auth.admin.from("cms_users").select("id,email,name,role,status,created_at").order("created_at"),
     auth.admin.from("card_options").select("*").order("option_type").order("sort_order").order("label"),
+    auth.admin.from("wanted_cards").select("*,categories(name)").order("sort_order").order("updated_at", { ascending: false }),
   ]);
-  const error = categoriesError || cardsError || usersError || optionsError;
+  const error = categoriesError || cardsError || usersError || optionsError || wantedError;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const itemCounts = new Map<number, number>();
   (cards ?? []).forEach(card => itemCounts.set(card.category_id, (itemCounts.get(card.category_id) ?? 0) + 1));
@@ -55,6 +56,10 @@ export async function GET() {
     })),
     users: users ?? [],
     options: options ?? [],
+    wantedCards: (wantedCards ?? []).map(item => ({
+      ...item,
+      category_name: Array.isArray(item.categories) ? item.categories[0]?.name : (item.categories as { name?: string } | null)?.name,
+    })),
   });
 }
 
@@ -84,6 +89,12 @@ export async function POST(request: NextRequest) {
     if (!["status", "condition"].includes(optionType) || !label) return NextResponse.json({ error: "Option type and label are required" }, { status: 400 });
     const value = optionType === "status" ? slugify(label) : label;
     ({ error } = await auth.admin.from("card_options").insert({ option_type: optionType, label, value, sort_order: Number(body.sortOrder ?? 0) }));
+  } else if (action === "create_wanted_card") {
+    ({ error } = await auth.admin.from("wanted_cards").insert({
+      title: String(body.title ?? "").trim(), category_id: Number(body.categoryId), details: String(body.details ?? "").trim(),
+      priority: String(body.priority ?? "Open to offers").trim(), tone: String(body.tone ?? "purple"),
+      status: String(body.status ?? "active"), sort_order: Number(body.sortOrder ?? 0),
+    }));
   } else if (action === "create_user") {
     if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     const email = String(body.email ?? "").trim().toLowerCase();
@@ -121,6 +132,12 @@ export async function POST(request: NextRequest) {
       await auth.admin.from("cards").update({ [column]: nextValue }).eq(column, current.value);
     }
     ({ error } = await auth.admin.from("card_options").update({ label, value: nextValue, sort_order: Number(body.sortOrder ?? 0) }).eq("id", Number(body.id)));
+  } else if (action === "update_wanted_card") {
+    ({ error } = await auth.admin.from("wanted_cards").update({
+      title: String(body.title ?? "").trim(), category_id: Number(body.categoryId), details: String(body.details ?? "").trim(),
+      priority: String(body.priority ?? "Open to offers").trim(), tone: String(body.tone ?? "purple"),
+      status: String(body.status ?? "active"), sort_order: Number(body.sortOrder ?? 0), updated_at: new Date().toISOString(),
+    }).eq("id", Number(body.id)));
   } else if (action === "delete_card") {
     const { data: card } = await auth.admin.from("cards").select("image_key,back_image_key").eq("id", Number(body.id)).single();
     ({ error } = await auth.admin.from("cards").delete().eq("id", Number(body.id)));
@@ -137,6 +154,8 @@ export async function POST(request: NextRequest) {
     const { count: usage } = await auth.admin.from("cards").select("*", { count: "exact", head: true }).eq(column, option.value);
     if (usage) return NextResponse.json({ error: `This option is used by ${usage} card${usage === 1 ? "" : "s"}` }, { status: 400 });
     ({ error } = await auth.admin.from("card_options").delete().eq("id", Number(body.id)));
+  } else if (action === "delete_wanted_card") {
+    ({ error } = await auth.admin.from("wanted_cards").delete().eq("id", Number(body.id)));
   } else {
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   }
