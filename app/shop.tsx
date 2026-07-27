@@ -5,15 +5,15 @@ import { useMemo, useState } from "react";
 
 const phone = "96171234567";
 
-export type Product = { id: number; title: string; series: string; price: number; tone: string; code: string; icon: string; tag: string; imageUrl?: string; backImageUrl?: string };
+export type Product = { id: number; title: string; series: string; price: number; condition: string; tone: string; code: string; icon: string; tag: string; imageUrl?: string; backImageUrl?: string };
 
 const sampleProducts: Product[] = [
-  { id: 1, title: "Pikachu VMAX", series: "Pokémon", price: 48, tone: "yellow", code: "025/185", icon: "⚡", tag: "Popular" },
-  { id: 2, title: "Charizard ex", series: "Pokémon", price: 72, tone: "orange", code: "125/197", icon: "♨", tag: "Rare" },
-  { id: 3, title: "Lionel Messi", series: "FIFA", price: 35, tone: "blue", code: "LEO 10", icon: "10", tag: "Top pick" },
-  { id: 4, title: "Kylian Mbappé", series: "FIFA", price: 28, tone: "purple", code: "KMB 09", icon: "9", tag: "New" },
-  { id: 5, title: "Blue-Eyes Dragon", series: "Yu-Gi-Oh!", price: 54, tone: "ice", code: "LOB-001", icon: "✦", tag: "Classic" },
-  { id: 6, title: "Luffy Gear Five", series: "One Piece", price: 41, tone: "red", code: "OP05-119", icon: "☀", tag: "Trending" },
+  { id: 1, title: "Pikachu VMAX", series: "Pokémon", price: 48, condition: "Near mint", tone: "yellow", code: "025/185", icon: "⚡", tag: "Popular" },
+  { id: 2, title: "Charizard ex", series: "Pokémon", price: 72, condition: "Near mint", tone: "orange", code: "125/197", icon: "♨", tag: "Rare" },
+  { id: 3, title: "Lionel Messi", series: "FIFA", price: 35, condition: "Excellent", tone: "blue", code: "LEO 10", icon: "10", tag: "Top pick" },
+  { id: 4, title: "Kylian Mbappé", series: "FIFA", price: 28, condition: "Mint", tone: "purple", code: "KMB 09", icon: "9", tag: "New" },
+  { id: 5, title: "Blue-Eyes Dragon", series: "Yu-Gi-Oh!", price: 54, condition: "Good", tone: "ice", code: "LOB-001", icon: "✦", tag: "Classic" },
+  { id: 6, title: "Luffy Gear Five", series: "One Piece", price: 41, condition: "Near mint", tone: "red", code: "OP05-119", icon: "☀", tag: "Trending" },
 ];
 
 export function Brand() {
@@ -68,11 +68,21 @@ function whatsapp(text: string) {
 
 export function ShopHome({ managedProducts = [] }: { managedProducts?: Product[] }) {
   const products = managedProducts.length ? managedProducts : sampleProducts;
+  const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All cards");
+  const [condition, setCondition] = useState("All conditions");
   const [cart, setCart] = useState<number[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const categories = ["All cards", ...Array.from(new Set(products.map((product) => product.series)))];
-  const shown = useMemo(() => category === "All cards" ? products : products.filter((p) => p.series === category), [category]);
+  const conditions = ["All conditions", ...Array.from(new Set(products.map((product) => product.condition)))];
+  const shown = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return products.filter(product =>
+      (category === "All cards" || product.series === category) &&
+      (condition === "All conditions" || product.condition === condition) &&
+      (!needle || `${product.title} ${product.code} ${product.series}`.toLowerCase().includes(needle))
+    );
+  }, [products, query, category, condition]);
   const total = cart.reduce((sum, id) => sum + (products.find((p) => p.id === id)?.price ?? 0), 0);
 
   return (
@@ -98,6 +108,10 @@ export function ShopHome({ managedProducts = [] }: { managedProducts?: Product[]
           <div><span className="kicker">Fresh in the shop</span><h2>Cards to collect</h2></div>
           <p>Every card is checked, sleeved, and ready for its next collection.</p>
         </div>
+        <div className="shop-tools">
+          <label className="shop-search"><span>⌕</span><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by card name or code…" aria-label="Search cards" /></label>
+          <label className="shop-select">Condition<select value={condition} onChange={event => setCondition(event.target.value)}>{conditions.map(name => <option key={name}>{name}</option>)}</select></label>
+        </div>
         <div className="filters" role="group" aria-label="Filter cards by category">
           {categories.map((name) => <button className={category === name ? "active" : ""} key={name} onClick={() => setCategory(name)}>{name}</button>)}
         </div>
@@ -107,7 +121,7 @@ export function ShopHome({ managedProducts = [] }: { managedProducts?: Product[]
               <div className="product-art"><span className="tag">{item.tag}</span><CardArt item={item} />{item.backImageUrl && <span className="flip-hint">Hover to flip ↻</span>}</div>
               <div className="product-info">
                 <span>{item.series}</span><h3>{item.title}</h3>
-                <div className="price-row"><strong>${item.price}.00</strong><span>Near mint</span></div>
+                <div className="price-row"><strong>${item.price}.00</strong><span>{item.condition}</span></div>
                 <div className="card-actions">
                   <button onClick={() => setCart([...cart, item.id])}>Add to bag</button>
                   <a href={whatsapp(`Hi TGMAX! Is the ${item.title} card still available?`)} target="_blank" rel="noreferrer" aria-label={`Ask about ${item.title} on WhatsApp`}>↗</a>
@@ -115,6 +129,7 @@ export function ShopHome({ managedProducts = [] }: { managedProducts?: Product[]
               </div>
             </article>
           ))}
+          {!shown.length && <div className="shop-empty"><b>No matching cards</b><p>Try another search, category, or condition.</p><button onClick={() => { setQuery(""); setCategory("All cards"); setCondition("All conditions"); }}>Clear filters</button></div>}
         </div>
       </section>
 

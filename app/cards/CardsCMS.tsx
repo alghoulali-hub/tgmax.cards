@@ -23,6 +23,9 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
   const [backImagePreview, setBackImagePreview] = useState("");
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
+  const [inventoryQuery, setInventoryQuery] = useState("");
+  const [inventoryCategory, setInventoryCategory] = useState("all");
+  const [inventoryCondition, setInventoryCondition] = useState("all");
 
   const load = useCallback(async () => {
     const response = await fetch("/api/cms");
@@ -95,6 +98,12 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
   if (!data) return <main className="cms-loading"><div className="brand-mark"><span>TG</span></div><p>{message || "Loading TGMAX CMS…"}</p></main>;
   const totalStock = data.cards.reduce((sum, card) => sum + card.stock, 0);
   const value = data.cards.reduce((sum, card) => sum + card.price_cents * card.stock, 0) / 100;
+  const filteredCards = data.cards.filter(card => {
+    const needle = inventoryQuery.trim().toLowerCase();
+    return (inventoryCategory === "all" || card.category_id === Number(inventoryCategory)) &&
+      (inventoryCondition === "all" || card.condition === inventoryCondition) &&
+      (!needle || `${card.title} ${card.card_code} ${card.category_name}`.toLowerCase().includes(needle));
+  });
 
   return <main className="cms-shell">
     <aside className="cms-sidebar">
@@ -116,9 +125,15 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
       {message && <div className="cms-alert">{message}<button onClick={() => setMessage("")}>×</button></div>}
       {tab === "cards" && <>
         <div className="cms-stats"><article><small>Total cards</small><b>{data.cards.length}</b><span>Unique listings</span></article><article><small>Units in stock</small><b>{totalStock}</b><span>Across all categories</span></article><article><small>Inventory value</small><b>${value.toFixed(0)}</b><span>At listed prices</span></article></div>
+        <div className="cms-filters">
+          <label className="cms-search"><span>⌕</span><input type="search" value={inventoryQuery} onChange={event => setInventoryQuery(event.target.value)} placeholder="Search title, code, or category…" aria-label="Search inventory" /></label>
+          <label>Category<select value={inventoryCategory} onChange={event => setInventoryCategory(event.target.value)}><option value="all">All categories</option>{data.categories.map(category => <option value={category.id} key={category.id}>{category.name}</option>)}</select></label>
+          <label>Condition<select value={inventoryCondition} onChange={event => setInventoryCondition(event.target.value)}><option value="all">All conditions</option>{data.options.filter(option => option.option_type === "condition").map(option => <option value={option.value} key={option.id}>{option.label}</option>)}</select></label>
+          {(inventoryQuery || inventoryCategory !== "all" || inventoryCondition !== "all") && <button onClick={() => { setInventoryQuery(""); setInventoryCategory("all"); setInventoryCondition("all"); }}>Clear</button>}
+        </div>
         <div className="cms-table-wrap"><table><thead><tr><th>Card</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th /></tr></thead><tbody>
-          {data.cards.map(card => <tr key={card.id}><td><div className="cms-card-cell">{card.image_url ? <img src={card.image_url} alt="" /> : <span className="cms-card-placeholder">TG</span>}<span><b>{card.title}</b><small>{card.card_code || "No card code"} · {card.condition}</small></span></div></td><td>{card.category_name}</td><td>${(card.price_cents / 100).toFixed(2)}</td><td><span className={card.stock < 2 ? "stock-low" : ""}>{card.stock}</span></td><td><span className={`cms-status ${card.status}`}>{card.status}</span></td><td><button className="row-action" onClick={() => openCard(card)}>Edit</button><button className="row-delete" onClick={() => void mutate({ action: "delete_card", id: card.id })}>×</button></td></tr>)}
-          {!data.cards.length && <tr><td colSpan={6} className="cms-empty">No cards yet. Add your first card to begin.</td></tr>}
+          {filteredCards.map(card => <tr key={card.id}><td><div className="cms-card-cell">{card.image_url ? <img src={card.image_url} alt="" /> : <span className="cms-card-placeholder">TG</span>}<span><b>{card.title}</b><small>{card.card_code || "No card code"} · {card.condition}</small></span></div></td><td>{card.category_name}</td><td>${(card.price_cents / 100).toFixed(2)}</td><td><span className={card.stock < 2 ? "stock-low" : ""}>{card.stock}</span></td><td><span className={`cms-status ${card.status}`}>{card.status}</span></td><td><button className="row-action" onClick={() => openCard(card)}>Edit</button><button className="row-delete" onClick={() => void mutate({ action: "delete_card", id: card.id })}>×</button></td></tr>)}
+          {!filteredCards.length && <tr><td colSpan={6} className="cms-empty">{data.cards.length ? "No cards match these filters." : "No cards yet. Add your first card to begin."}</td></tr>}
         </tbody></table></div>
       </>}
       {tab === "categories" && <div className="category-admin-grid">{data.categories.map(category => <article key={category.id}><span className="cat-swatch" style={{ background: category.accent }} /><small>{category.slug}</small><h2>{category.name}</h2><p>{category.item_count} cards</p><div><button onClick={() => { setEditing(category); setModal("category"); }}>Edit</button><button disabled={category.item_count > 0} onClick={() => void mutate({ action: "delete_category", id: category.id })}>Delete</button></div></article>)}{!data.categories.length && <p className="cms-empty">Add a category before creating cards.</p>}</div>}
