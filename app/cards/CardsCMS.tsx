@@ -4,11 +4,11 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type Category = { id: number; name: string; slug: string; accent: string; item_count: number };
-type Card = { id: number; title: string; category_id: number; category_name: string; card_code: string; image_key: string | null; image_url: string | null; price_cents: number; stock: number; condition: string; status: string };
+type Card = { id: number; title: string; category_id: number; category_name: string; card_code: string; image_key: string | null; image_url: string | null; back_image_key: string | null; back_image_url: string | null; price_cents: number; stock: number; condition: string; status: string };
 type User = { id: number; name: string; email: string; role: string; status: string };
 type CMSData = { currentUser: User; categories: Category[]; cards: Card[]; users: User[] };
 
-const emptyCard = { title: "", categoryId: "", cardCode: "", imageKey: "", price: "", stock: "1", condition: "Near mint", status: "active" };
+const emptyCard = { title: "", categoryId: "", cardCode: "", imageKey: "", backImageKey: "", price: "", stock: "1", condition: "Near mint", status: "active" };
 
 export function CardsCMS({ signedInAs }: { signedInAs: string }) {
   const [data, setData] = useState<CMSData | null>(null);
@@ -18,6 +18,8 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
   const [cardForm, setCardForm] = useState(emptyCard);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState("");
+  const [backImageFile, setBackImageFile] = useState<File | null>(null);
+  const [backImagePreview, setBackImagePreview] = useState("");
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -40,9 +42,11 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
 
   function openCard(card?: Card) {
     setEditing(card ?? null);
-    setCardForm(card ? { title: card.title, categoryId: String(card.category_id), cardCode: card.card_code, imageKey: card.image_key ?? "", price: String(card.price_cents / 100), stock: String(card.stock), condition: card.condition, status: card.status } : { ...emptyCard, categoryId: String(data?.categories[0]?.id ?? "") });
+    setCardForm(card ? { title: card.title, categoryId: String(card.category_id), cardCode: card.card_code, imageKey: card.image_key ?? "", backImageKey: card.back_image_key ?? "", price: String(card.price_cents / 100), stock: String(card.stock), condition: card.condition, status: card.status } : { ...emptyCard, categoryId: String(data?.categories[0]?.id ?? "") });
     setImageFile(null);
+    setBackImageFile(null);
     setImagePreview(card?.image_url ?? "");
+    setBackImagePreview(card?.back_image_url ?? "");
     setModal("card");
   }
 
@@ -50,6 +54,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
     event.preventDefault();
     setUploading(true);
     let imageKey = cardForm.imageKey;
+    let backImageKey = cardForm.backImageKey;
     if (imageFile) {
       const upload = new FormData();
       upload.append("image", imageFile);
@@ -58,7 +63,15 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
       if (!response.ok || !result.key) { setMessage(result.error ?? "Image upload failed"); setUploading(false); return; }
       imageKey = result.key;
     }
-    await mutate({ action: editing ? "update_card" : "create_card", id: editing && "id" in editing ? editing.id : undefined, ...cardForm, imageKey });
+    if (backImageFile) {
+      const upload = new FormData();
+      upload.append("image", backImageFile);
+      const response = await fetch("/api/cms/upload", { method: "POST", body: upload });
+      const result = await response.json() as { key?: string; error?: string };
+      if (!response.ok || !result.key) { setMessage(result.error ?? "Back image upload failed"); setUploading(false); return; }
+      backImageKey = result.key;
+    }
+    await mutate({ action: editing ? "update_card" : "create_card", id: editing && "id" in editing ? editing.id : undefined, ...cardForm, imageKey, backImageKey });
     setUploading(false);
   }
 
@@ -67,6 +80,14 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
     setImageFile(file);
     const reader = new FileReader();
     reader.onload = () => setImagePreview(String(reader.result ?? ""));
+    reader.readAsDataURL(file);
+  }
+
+  function chooseBackImage(file?: File) {
+    if (!file) return;
+    setBackImageFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setBackImagePreview(String(reader.result ?? ""));
     reader.readAsDataURL(file);
   }
 
@@ -106,13 +127,22 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
       <button className="cms-modal-close" onClick={() => { setModal(null); setEditing(null); }}>×</button>
       <span className="kicker">{editing ? "Update record" : "Create new"}</span><h2>{modal === "card" ? `${editing ? "Edit" : "Add"} card` : modal === "category" ? `${editing ? "Edit" : "Add"} category` : `${editing ? "Manage" : "Add"} user`}</h2>
       {modal === "card" && <form onSubmit={submitCard}>
-        <label>Card photo <span className="field-hint">JPG, PNG, WebP or AVIF · max 5 MB</span>
+        <div className="image-fields">
+        <label>Front photo <span className="field-hint">Required for clean display</span>
           <div className="image-upload">
-            {imagePreview ? <img src={imagePreview} alt="Card preview" /> : <div className="image-upload-empty"><b>+</b><span>Add a card photo</span></div>}
-            <div><label className="upload-button">Choose image<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={e => chooseImage(e.target.files?.[0])} /></label>
+            {imagePreview ? <img src={imagePreview} alt="Card front preview" /> : <div className="image-upload-empty"><b>+</b><span>Add front photo</span></div>}
+            <div><label className="upload-button">Choose front<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={e => chooseImage(e.target.files?.[0])} /></label>
               {imagePreview && <button type="button" className="remove-image" onClick={() => { setImageFile(null); setImagePreview(""); setCardForm({ ...cardForm, imageKey: "" }); }}>Remove</button>}</div>
           </div>
         </label>
+        <label>Back photo <span className="field-hint">Optional · enables flip</span>
+          <div className="image-upload">
+            {backImagePreview ? <img src={backImagePreview} alt="Card back preview" /> : <div className="image-upload-empty"><b>↻</b><span>Add back photo</span></div>}
+            <div><label className="upload-button">Choose back<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={e => chooseBackImage(e.target.files?.[0])} /></label>
+              {backImagePreview && <button type="button" className="remove-image" onClick={() => { setBackImageFile(null); setBackImagePreview(""); setCardForm({ ...cardForm, backImageKey: "" }); }}>Remove</button>}</div>
+          </div>
+        </label>
+        </div>
         <label>Card title<input required value={cardForm.title} onChange={e => setCardForm({ ...cardForm, title: e.target.value })} placeholder="e.g. Charizard ex" /></label>
         <div className="form-split"><label>Category<select required value={cardForm.categoryId} onChange={e => setCardForm({ ...cardForm, categoryId: e.target.value })}><option value="">Choose…</option>{data.categories.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label><label>Card code<input value={cardForm.cardCode} onChange={e => setCardForm({ ...cardForm, cardCode: e.target.value })} placeholder="125/197" /></label></div>
         <div className="form-split"><label>Price ($)<input required type="number" min="0" step=".01" value={cardForm.price} onChange={e => setCardForm({ ...cardForm, price: e.target.value })} /></label><label>Stock<input required type="number" min="0" value={cardForm.stock} onChange={e => setCardForm({ ...cardForm, stock: e.target.value })} /></label></div>

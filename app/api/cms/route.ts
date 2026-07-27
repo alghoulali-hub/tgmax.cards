@@ -50,6 +50,7 @@ export async function GET() {
       ...card,
       category_name: Array.isArray(card.categories) ? card.categories[0]?.name : (card.categories as { name?: string } | null)?.name,
       image_url: card.image_key ? auth.admin.storage.from("card-images").getPublicUrl(card.image_key).data.publicUrl : null,
+      back_image_url: card.back_image_key ? auth.admin.storage.from("card-images").getPublicUrl(card.back_image_key).data.publicUrl : null,
     })),
     users: users ?? [],
   });
@@ -70,7 +71,8 @@ export async function POST(request: NextRequest) {
   } else if (action === "create_card") {
     ({ error } = await auth.admin.from("cards").insert({
       title: String(body.title ?? "").trim(), category_id: Number(body.categoryId), card_code: String(body.cardCode ?? "").trim(),
-      image_key: body.imageKey ? String(body.imageKey) : null, price_cents: Math.round(Number(body.price ?? 0) * 100),
+      image_key: body.imageKey ? String(body.imageKey) : null, back_image_key: body.backImageKey ? String(body.backImageKey) : null,
+      price_cents: Math.round(Number(body.price ?? 0) * 100),
       stock: Math.max(0, Number(body.stock ?? 0)), condition: String(body.condition ?? "Near mint"), status: String(body.status ?? "active"),
     }));
   } else if (action === "create_user") {
@@ -82,14 +84,16 @@ export async function POST(request: NextRequest) {
     if (invite.error && !invite.error.message.toLowerCase().includes("already")) error = invite.error;
     if (!error) ({ error } = await auth.admin.from("cms_users").insert({ email, name, role: String(body.role ?? "editor"), status: "active", auth_user_id: invite.data.user?.id ?? null }));
   } else if (action === "update_card") {
-    const { data: previous } = await auth.admin.from("cards").select("image_key").eq("id", Number(body.id)).single();
+    const { data: previous } = await auth.admin.from("cards").select("image_key,back_image_key").eq("id", Number(body.id)).single();
     const nextImageKey = body.imageKey ? String(body.imageKey) : null;
+    const nextBackImageKey = body.backImageKey ? String(body.backImageKey) : null;
     ({ error } = await auth.admin.from("cards").update({
-      title: String(body.title), category_id: Number(body.categoryId), card_code: String(body.cardCode ?? ""), image_key: nextImageKey,
+      title: String(body.title), category_id: Number(body.categoryId), card_code: String(body.cardCode ?? ""), image_key: nextImageKey, back_image_key: nextBackImageKey,
       price_cents: Math.round(Number(body.price) * 100), stock: Math.max(0, Number(body.stock)), condition: String(body.condition),
       status: String(body.status), updated_at: new Date().toISOString(),
     }).eq("id", Number(body.id)));
     if (!error && previous?.image_key && previous.image_key !== nextImageKey) await auth.admin.storage.from("card-images").remove([previous.image_key]);
+    if (!error && previous?.back_image_key && previous.back_image_key !== nextBackImageKey) await auth.admin.storage.from("card-images").remove([previous.back_image_key]);
   } else if (action === "update_category") {
     const name = String(body.name ?? "").trim();
     ({ error } = await auth.admin.from("categories").update({ name, slug: slugify(name), accent: String(body.accent ?? "#d8ff3e") }).eq("id", Number(body.id)));
@@ -98,9 +102,10 @@ export async function POST(request: NextRequest) {
     if (Number(body.id) === auth.member.id && body.status === "disabled") return NextResponse.json({ error: "You cannot disable yourself" }, { status: 400 });
     ({ error } = await auth.admin.from("cms_users").update({ name: String(body.name), role: String(body.role), status: String(body.status) }).eq("id", Number(body.id)));
   } else if (action === "delete_card") {
-    const { data: card } = await auth.admin.from("cards").select("image_key").eq("id", Number(body.id)).single();
+    const { data: card } = await auth.admin.from("cards").select("image_key,back_image_key").eq("id", Number(body.id)).single();
     ({ error } = await auth.admin.from("cards").delete().eq("id", Number(body.id)));
     if (!error && card?.image_key) await auth.admin.storage.from("card-images").remove([card.image_key]);
+    if (!error && card?.back_image_key) await auth.admin.storage.from("card-images").remove([card.back_image_key]);
   } else if (action === "delete_category") {
     if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     ({ error } = await auth.admin.from("categories").delete().eq("id", Number(body.id)));

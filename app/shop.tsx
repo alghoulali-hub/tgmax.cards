@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 const phone = "96171234567";
 
-export type Product = { id: number; title: string; series: string; price: number; tone: string; code: string; icon: string; tag: string; imageUrl?: string };
+export type Product = { id: number; title: string; series: string; price: number; tone: string; code: string; icon: string; tag: string; imageUrl?: string; backImageUrl?: string };
 
 const sampleProducts: Product[] = [
   { id: 1, title: "Pikachu VMAX", series: "Pokémon", price: 48, tone: "yellow", code: "025/185", icon: "⚡", tag: "Popular" },
@@ -46,6 +46,14 @@ export function Header({ cart = 0, onCart }: { cart?: number; onCart?: () => voi
 }
 
 function CardArt({ item }: { item: Product }) {
+  if (item.imageUrl) {
+    return (
+      <div className={`card-art photo-card${item.backImageUrl ? " can-flip" : ""}`} tabIndex={item.backImageUrl ? 0 : undefined} aria-label={item.backImageUrl ? `${item.title}: hover or focus to see the back` : item.title}>
+        <div className="card-face card-front"><img src={item.imageUrl} alt={`${item.title} front`} /></div>
+        {item.backImageUrl && <div className="card-face card-back"><img src={item.backImageUrl} alt={`${item.title} back`} /></div>}
+      </div>
+    );
+  }
   return (
     <div className={`card-art ${item.tone}`}>
       <div className="shine" />
@@ -102,7 +110,7 @@ export function ShopHome({ managedProducts = [] }: { managedProducts?: Product[]
         <div className="product-grid">
           {shown.map((item) => (
             <article className="product-card" key={item.id}>
-              <div className="product-art"><span className="tag">{item.tag}</span><CardArt item={item} /></div>
+              <div className="product-art"><span className="tag">{item.tag}</span><CardArt item={item} />{item.backImageUrl && <span className="flip-hint">Hover to flip ↻</span>}</div>
               <div className="product-info">
                 <span>{item.series}</span><h3>{item.title}</h3>
                 <div className="price-row"><strong>${item.price}.00</strong><span>Near mint</span></div>
