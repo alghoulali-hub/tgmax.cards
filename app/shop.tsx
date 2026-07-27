@@ -5,7 +5,9 @@ import { useMemo, useState } from "react";
 
 const phone = "96171234567";
 
-const products = [
+export type Product = { id: number; title: string; series: string; price: number; tone: string; code: string; icon: string; tag: string };
+
+const sampleProducts: Product[] = [
   { id: 1, title: "Pikachu VMAX", series: "Pokémon", price: 48, tone: "yellow", code: "025/185", icon: "⚡", tag: "Popular" },
   { id: 2, title: "Charizard ex", series: "Pokémon", price: 72, tone: "orange", code: "125/197", icon: "♨", tag: "Rare" },
   { id: 3, title: "Lionel Messi", series: "FIFA", price: 35, tone: "blue", code: "LEO 10", icon: "10", tag: "Top pick" },
@@ -43,7 +45,7 @@ export function Header({ cart = 0, onCart }: { cart?: number; onCart?: () => voi
   );
 }
 
-function CardArt({ item }: { item: (typeof products)[number] }) {
+function CardArt({ item }: { item: Product }) {
   return (
     <div className={`card-art ${item.tone}`}>
       <div className="shine" />
@@ -62,11 +64,12 @@ function whatsapp(text: string) {
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
 }
 
-export function ShopHome() {
+export function ShopHome({ managedProducts = [] }: { managedProducts?: Product[] }) {
+  const products = managedProducts.length ? managedProducts : sampleProducts;
   const [category, setCategory] = useState("All cards");
   const [cart, setCart] = useState<number[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const categories = ["All cards", "Pokémon", "FIFA", "Yu-Gi-Oh!", "One Piece"];
+  const categories = ["All cards", ...Array.from(new Set(products.map((product) => product.series)))];
   const shown = useMemo(() => category === "All cards" ? products : products.filter((p) => p.series === category), [category]);
   const total = cart.reduce((sum, id) => sum + (products.find((p) => p.id === id)?.price ?? 0), 0);
 
@@ -82,7 +85,7 @@ export function ShopHome() {
           <div className="trust-row"><span>✓ Authentic cards</span><span>✓ Carefully packed</span><span>✓ Fast replies</span></div>
         </div>
         <div className="hero-cards" aria-label="Featured trading cards">
-          <div className="float-card back"><CardArt item={products[2]} /></div>
+          <div className="float-card back"><CardArt item={products[Math.min(2, products.length - 1)]} /></div>
           <div className="float-card front"><CardArt item={products[0]} /></div>
           <div className="spark one">✦</div><div className="spark two">✦</div>
         </div>

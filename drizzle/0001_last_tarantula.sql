@@ -1,0 +1,1 @@
+CREATE INDEX `cards_category_idx` ON `cards` (`category_id`);
