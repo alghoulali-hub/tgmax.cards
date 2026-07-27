@@ -6,15 +6,16 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 type Category = { id: number; name: string; slug: string; accent: string; item_count: number };
 type Card = { id: number; title: string; category_id: number; category_name: string; card_code: string; image_key: string | null; image_url: string | null; back_image_key: string | null; back_image_url: string | null; price_cents: number; stock: number; condition: string; status: string };
 type User = { id: number; name: string; email: string; role: string; status: string };
-type CMSData = { currentUser: User; categories: Category[]; cards: Card[]; users: User[] };
+type CardOption = { id: number; option_type: "status" | "condition"; label: string; value: string; sort_order: number };
+type CMSData = { currentUser: User; categories: Category[]; cards: Card[]; users: User[]; options: CardOption[] };
 
 const emptyCard = { title: "", categoryId: "", cardCode: "", imageKey: "", backImageKey: "", price: "", stock: "1", condition: "Near mint", status: "active" };
 
 export function CardsCMS({ signedInAs }: { signedInAs: string }) {
   const [data, setData] = useState<CMSData | null>(null);
-  const [tab, setTab] = useState<"cards" | "categories" | "users">("cards");
-  const [modal, setModal] = useState<"card" | "category" | "user" | null>(null);
-  const [editing, setEditing] = useState<Card | Category | User | null>(null);
+  const [tab, setTab] = useState<"cards" | "categories" | "options" | "users">("cards");
+  const [modal, setModal] = useState<"card" | "category" | "option" | "user" | null>(null);
+  const [editing, setEditing] = useState<Card | Category | CardOption | User | null>(null);
   const [cardForm, setCardForm] = useState(emptyCard);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState("");
@@ -102,14 +103,15 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
       <nav>
         <button className={tab === "cards" ? "active" : ""} onClick={() => setTab("cards")}><span>▱</span> Inventory <b>{data.cards.length}</b></button>
         <button className={tab === "categories" ? "active" : ""} onClick={() => setTab("categories")}><span>⌗</span> Categories <b>{data.categories.length}</b></button>
+        <button className={tab === "options" ? "active" : ""} onClick={() => setTab("options")}><span>◇</span> Card options <b>{data.options.length}</b></button>
         <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}><span>◎</span> Users <b>{data.users.length}</b></button>
       </nav>
       <div className="cms-profile"><span>{signedInAs.slice(0, 1).toUpperCase()}</span><div><b>{signedInAs}</b><small>{data.currentUser.role}</small></div></div>
       <a className="cms-signout" href="/auth/signout">Sign out</a>
     </aside>
     <section className="cms-main">
-      <header className="cms-header"><div><span className="kicker">TGMAX control room</span><h1>{tab === "cards" ? "Card inventory" : tab === "categories" ? "Categories" : "Team users"}</h1></div>
-        <button className="cms-add" onClick={() => { setEditing(null); setModal(tab === "cards" ? "card" : tab === "categories" ? "category" : "user"); if (tab === "cards") openCard(); }}>+ Add {tab === "cards" ? "card" : tab === "categories" ? "category" : "user"}</button>
+      <header className="cms-header"><div><span className="kicker">TGMAX control room</span><h1>{tab === "cards" ? "Card inventory" : tab === "categories" ? "Categories" : tab === "options" ? "Card options" : "Team users"}</h1></div>
+        <button className="cms-add" onClick={() => { setEditing(null); setModal(tab === "cards" ? "card" : tab === "categories" ? "category" : tab === "options" ? "option" : "user"); if (tab === "cards") openCard(); }}>+ Add {tab === "cards" ? "card" : tab === "categories" ? "category" : tab === "options" ? "option" : "user"}</button>
       </header>
       {message && <div className="cms-alert">{message}<button onClick={() => setMessage("")}>×</button></div>}
       {tab === "cards" && <>
@@ -120,12 +122,20 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
         </tbody></table></div>
       </>}
       {tab === "categories" && <div className="category-admin-grid">{data.categories.map(category => <article key={category.id}><span className="cat-swatch" style={{ background: category.accent }} /><small>{category.slug}</small><h2>{category.name}</h2><p>{category.item_count} cards</p><div><button onClick={() => { setEditing(category); setModal("category"); }}>Edit</button><button disabled={category.item_count > 0} onClick={() => void mutate({ action: "delete_category", id: category.id })}>Delete</button></div></article>)}{!data.categories.length && <p className="cms-empty">Add a category before creating cards.</p>}</div>}
+      {tab === "options" && <div className="option-admin">
+        {(["status", "condition"] as const).map(optionType => <section key={optionType}><div className="option-heading"><span className="kicker">{optionType}</span><h2>{optionType === "status" ? "Card statuses" : "Card conditions"}</h2></div>
+          <div className="option-list">{data.options.filter(option => option.option_type === optionType).map(option => {
+            const used = data.cards.filter(card => optionType === "status" ? card.status === option.value : card.condition === option.value).length;
+            return <article key={option.id}><span><b>{option.label}</b><small>{option.value} · {used} card{used === 1 ? "" : "s"}</small></span><span className="option-order">#{option.sort_order}</span><button onClick={() => { setEditing(option); setModal("option"); }}>Edit</button><button className="row-delete" disabled={used > 0} title={used ? "Change cards using this option before deleting it" : "Delete option"} onClick={() => void mutate({ action: "delete_option", id: option.id })}>×</button></article>;
+          })}</div>
+        </section>)}
+      </div>}
       {tab === "users" && <div className="user-list">{data.users.map(user => <article key={user.id}><span className="user-avatar">{user.name.slice(0, 1).toUpperCase()}</span><div><b>{user.name}</b><small>{user.email}</small></div><span className="user-role">{user.role}</span><span className={`cms-status ${user.status}`}>{user.status}</span><button onClick={() => { setEditing(user); setModal("user"); }}>Manage</button></article>)}</div>}
     </section>
 
     {modal && <div className="cms-modal-backdrop" onClick={() => { setModal(null); setEditing(null); }}><div className="cms-modal" onClick={event => event.stopPropagation()}>
       <button className="cms-modal-close" onClick={() => { setModal(null); setEditing(null); }}>×</button>
-      <span className="kicker">{editing ? "Update record" : "Create new"}</span><h2>{modal === "card" ? `${editing ? "Edit" : "Add"} card` : modal === "category" ? `${editing ? "Edit" : "Add"} category` : `${editing ? "Manage" : "Add"} user`}</h2>
+      <span className="kicker">{editing ? "Update record" : "Create new"}</span><h2>{modal === "card" ? `${editing ? "Edit" : "Add"} card` : modal === "category" ? `${editing ? "Edit" : "Add"} category` : modal === "option" ? `${editing ? "Edit" : "Add"} card option` : `${editing ? "Manage" : "Add"} user`}</h2>
       {modal === "card" && <form onSubmit={submitCard}>
         <div className="image-fields">
         <label>Front photo <span className="field-hint">Required for clean display</span>
@@ -146,13 +156,26 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
         <label>Card title<input required value={cardForm.title} onChange={e => setCardForm({ ...cardForm, title: e.target.value })} placeholder="e.g. Charizard ex" /></label>
         <div className="form-split"><label>Category<select required value={cardForm.categoryId} onChange={e => setCardForm({ ...cardForm, categoryId: e.target.value })}><option value="">Choose…</option>{data.categories.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label><label>Card code<input value={cardForm.cardCode} onChange={e => setCardForm({ ...cardForm, cardCode: e.target.value })} placeholder="125/197" /></label></div>
         <div className="form-split"><label>Price ($)<input required type="number" min="0" step=".01" value={cardForm.price} onChange={e => setCardForm({ ...cardForm, price: e.target.value })} /></label><label>Stock<input required type="number" min="0" value={cardForm.stock} onChange={e => setCardForm({ ...cardForm, stock: e.target.value })} /></label></div>
-        <div className="form-split"><label>Condition<select value={cardForm.condition} onChange={e => setCardForm({ ...cardForm, condition: e.target.value })}><option>Mint</option><option>Near mint</option><option>Excellent</option><option>Good</option><option>Played</option></select></label><label>Status<select value={cardForm.status} onChange={e => setCardForm({ ...cardForm, status: e.target.value })}><option value="active">Active</option><option value="draft">Draft</option><option value="sold">Sold</option></select></label></div>
+        <div className="form-split"><label>Condition<select value={cardForm.condition} onChange={e => setCardForm({ ...cardForm, condition: e.target.value })}>{data.options.filter(option => option.option_type === "condition").map(option => <option value={option.value} key={option.id}>{option.label}</option>)}</select></label><label>Status<select value={cardForm.status} onChange={e => setCardForm({ ...cardForm, status: e.target.value })}>{data.options.filter(option => option.option_type === "status").map(option => <option value={option.value} key={option.id}>{option.label}</option>)}</select></label></div>
         <button type="submit" className="cms-submit" disabled={uploading}>{uploading ? "Uploading photo…" : editing ? "Save changes →" : "Add to inventory →"}</button>
       </form>}
       {modal === "category" && <CategoryForm category={editing as Category | null} onSubmit={mutate} />}
+      {modal === "option" && <OptionForm option={editing as CardOption | null} onSubmit={mutate} />}
       {modal === "user" && <UserForm user={editing as User | null} onSubmit={mutate} />}
     </div></div>}
   </main>;
+}
+
+function OptionForm({ option, onSubmit }: { option: CardOption | null; onSubmit: (data: Record<string, unknown>) => Promise<boolean> }) {
+  const [optionType, setOptionType] = useState<"status" | "condition">(option?.option_type ?? "status");
+  const [label, setLabel] = useState(option?.label ?? "");
+  const [sortOrder, setSortOrder] = useState(String(option?.sort_order ?? 0));
+  return <form onSubmit={e => { e.preventDefault(); void onSubmit({ action: option ? "update_option" : "create_option", id: option?.id, optionType, label, sortOrder: Number(sortOrder) }); }}>
+    <label>Option type<select disabled={!!option} value={optionType} onChange={e => setOptionType(e.target.value as "status" | "condition")}><option value="status">Status</option><option value="condition">Condition</option></select></label>
+    <label>Display label<input required value={label} onChange={e => setLabel(e.target.value)} placeholder={optionType === "status" ? "e.g. Reserved" : "e.g. Sealed"} /></label>
+    <label>Sort order<input type="number" value={sortOrder} onChange={e => setSortOrder(e.target.value)} /><span className="field-help">Lower numbers appear first in the card form.</span></label>
+    <button type="submit" className="cms-submit">{option ? "Save option" : "Add option"} →</button>
+  </form>;
 }
 
 function CategoryForm({ category, onSubmit }: { category: Category | null; onSubmit: (data: Record<string, unknown>) => Promise<boolean> }) {

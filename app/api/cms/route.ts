@@ -34,12 +34,13 @@ function slugify(value: string) {
 export async function GET() {
   const auth = await authorize();
   if ("error" in auth) return auth.error;
-  const [{ data: categories, error: categoriesError }, { data: cards, error: cardsError }, { data: users, error: usersError }] = await Promise.all([
+  const [{ data: categories, error: categoriesError }, { data: cards, error: cardsError }, { data: users, error: usersError }, { data: options, error: optionsError }] = await Promise.all([
     auth.admin.from("categories").select("*").order("name"),
     auth.admin.from("cards").select("*,categories(name)").order("updated_at", { ascending: false }),
     auth.admin.from("cms_users").select("id,email,name,role,status,created_at").order("created_at"),
+    auth.admin.from("card_options").select("*").order("option_type").order("sort_order").order("label"),
   ]);
-  const error = categoriesError || cardsError || usersError;
+  const error = categoriesError || cardsError || usersError || optionsError;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const itemCounts = new Map<number, number>();
   (cards ?? []).forEach(card => itemCounts.set(card.category_id, (itemCounts.get(card.category_id) ?? 0) + 1));
@@ -53,6 +54,7 @@ export async function GET() {
       back_image_url: card.back_image_key ? auth.admin.storage.from("card-images").getPublicUrl(card.back_image_key).data.publicUrl : null,
     })),
     users: users ?? [],
+    options: options ?? [],
   });
 }
 
@@ -75,6 +77,13 @@ export async function POST(request: NextRequest) {
       price_cents: Math.round(Number(body.price ?? 0) * 100),
       stock: Math.max(0, Number(body.stock ?? 0)), condition: String(body.condition ?? "Near mint"), status: String(body.status ?? "active"),
     }));
+  } else if (action === "create_option") {
+    if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    const optionType = String(body.optionType ?? "");
+    const label = String(body.label ?? "").trim();
+    if (!["status", "condition"].includes(optionType) || !label) return NextResponse.json({ error: "Option type and label are required" }, { status: 400 });
+    const value = optionType === "status" ? slugify(label) : label;
+    ({ error } = await auth.admin.from("card_options").insert({ option_type: optionType, label, value, sort_order: Number(body.sortOrder ?? 0) }));
   } else if (action === "create_user") {
     if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     const email = String(body.email ?? "").trim().toLowerCase();
@@ -101,6 +110,17 @@ export async function POST(request: NextRequest) {
     if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     if (Number(body.id) === auth.member.id && body.status === "disabled") return NextResponse.json({ error: "You cannot disable yourself" }, { status: 400 });
     ({ error } = await auth.admin.from("cms_users").update({ name: String(body.name), role: String(body.role), status: String(body.status) }).eq("id", Number(body.id)));
+  } else if (action === "update_option") {
+    if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    const { data: current } = await auth.admin.from("card_options").select("option_type,value").eq("id", Number(body.id)).single();
+    const label = String(body.label ?? "").trim();
+    if (!current || !label) return NextResponse.json({ error: "Option not found or label is empty" }, { status: 400 });
+    const nextValue = current.option_type === "status" ? slugify(label) : label;
+    if (current.value !== nextValue) {
+      const column = current.option_type === "status" ? "status" : "condition";
+      await auth.admin.from("cards").update({ [column]: nextValue }).eq(column, current.value);
+    }
+    ({ error } = await auth.admin.from("card_options").update({ label, value: nextValue, sort_order: Number(body.sortOrder ?? 0) }).eq("id", Number(body.id)));
   } else if (action === "delete_card") {
     const { data: card } = await auth.admin.from("cards").select("image_key,back_image_key").eq("id", Number(body.id)).single();
     ({ error } = await auth.admin.from("cards").delete().eq("id", Number(body.id)));
@@ -109,6 +129,14 @@ export async function POST(request: NextRequest) {
   } else if (action === "delete_category") {
     if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     ({ error } = await auth.admin.from("categories").delete().eq("id", Number(body.id)));
+  } else if (action === "delete_option") {
+    if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    const { data: option } = await auth.admin.from("card_options").select("option_type,value").eq("id", Number(body.id)).single();
+    if (!option) return NextResponse.json({ error: "Option not found" }, { status: 404 });
+    const column = option.option_type === "status" ? "status" : "condition";
+    const { count: usage } = await auth.admin.from("cards").select("*", { count: "exact", head: true }).eq(column, option.value);
+    if (usage) return NextResponse.json({ error: `This option is used by ${usage} card${usage === 1 ? "" : "s"}` }, { status: 400 });
+    ({ error } = await auth.admin.from("card_options").delete().eq("id", Number(body.id)));
   } else {
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   }
