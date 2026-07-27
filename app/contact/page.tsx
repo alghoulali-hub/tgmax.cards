@@ -1,3 +1,5 @@
+"use client";
+
 import { Footer, Header, phone, whatsapp } from "../shop";
 
 export default function ContactPage() {
