@@ -9,10 +9,7 @@ export async function POST(request: NextRequest) {
   if (!identifier || !password) return NextResponse.json({ error: "Username and password are required" }, { status: 400 });
 
   const admin = createAdminClient();
-  const query = admin.from("cms_users").select("email,status");
-  const { data: member } = identifier.includes("@")
-    ? await query.eq("email", identifier).maybeSingle()
-    : await query.ilike("username", identifier).maybeSingle();
+  const { data: member } = await admin.from("cms_users").select("email,status").ilike("username", identifier).maybeSingle();
   if (!member || member.status !== "active") return NextResponse.json({ error: "Invalid username or password" }, { status: 401 });
 
   const supabase = await createClient();
