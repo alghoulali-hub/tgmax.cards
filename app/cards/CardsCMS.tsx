@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type Category = { id: number; name: string; slug: string; accent: string; item_count: number };
-type Card = { id: number; title: string; category_id: number; category_name: string; card_code: string; image_key: string | null; price_cents: number; stock: number; condition: string; status: string };
+type Card = { id: number; title: string; category_id: number; category_name: string; card_code: string; image_key: string | null; image_url: string | null; price_cents: number; stock: number; condition: string; status: string };
 type User = { id: number; name: string; email: string; role: string; status: string };
 type CMSData = { currentUser: User; categories: Category[]; cards: Card[]; users: User[] };
 
@@ -42,7 +42,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
     setEditing(card ?? null);
     setCardForm(card ? { title: card.title, categoryId: String(card.category_id), cardCode: card.card_code, imageKey: card.image_key ?? "", price: String(card.price_cents / 100), stock: String(card.stock), condition: card.condition, status: card.status } : { ...emptyCard, categoryId: String(data?.categories[0]?.id ?? "") });
     setImageFile(null);
-    setImagePreview(card?.image_key ? `/api/card-image/${card.image_key}` : "");
+    setImagePreview(card?.image_url ?? "");
     setModal("card");
   }
 
@@ -84,7 +84,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
         <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}><span>◎</span> Users <b>{data.users.length}</b></button>
       </nav>
       <div className="cms-profile"><span>{signedInAs.slice(0, 1).toUpperCase()}</span><div><b>{signedInAs}</b><small>{data.currentUser.role}</small></div></div>
-      <a className="cms-signout" href="/signout-with-chatgpt?return_to=/">Sign out</a>
+      <a className="cms-signout" href="/auth/signout">Sign out</a>
     </aside>
     <section className="cms-main">
       <header className="cms-header"><div><span className="kicker">TGMAX control room</span><h1>{tab === "cards" ? "Card inventory" : tab === "categories" ? "Categories" : "Team users"}</h1></div>
@@ -94,7 +94,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
       {tab === "cards" && <>
         <div className="cms-stats"><article><small>Total cards</small><b>{data.cards.length}</b><span>Unique listings</span></article><article><small>Units in stock</small><b>{totalStock}</b><span>Across all categories</span></article><article><small>Inventory value</small><b>${value.toFixed(0)}</b><span>At listed prices</span></article></div>
         <div className="cms-table-wrap"><table><thead><tr><th>Card</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th /></tr></thead><tbody>
-          {data.cards.map(card => <tr key={card.id}><td><div className="cms-card-cell">{card.image_key ? <img src={`/api/card-image/${card.image_key}`} alt="" /> : <span className="cms-card-placeholder">TG</span>}<span><b>{card.title}</b><small>{card.card_code || "No card code"} · {card.condition}</small></span></div></td><td>{card.category_name}</td><td>${(card.price_cents / 100).toFixed(2)}</td><td><span className={card.stock < 2 ? "stock-low" : ""}>{card.stock}</span></td><td><span className={`cms-status ${card.status}`}>{card.status}</span></td><td><button className="row-action" onClick={() => openCard(card)}>Edit</button><button className="row-delete" onClick={() => void mutate({ action: "delete_card", id: card.id })}>×</button></td></tr>)}
+          {data.cards.map(card => <tr key={card.id}><td><div className="cms-card-cell">{card.image_url ? <img src={card.image_url} alt="" /> : <span className="cms-card-placeholder">TG</span>}<span><b>{card.title}</b><small>{card.card_code || "No card code"} · {card.condition}</small></span></div></td><td>{card.category_name}</td><td>${(card.price_cents / 100).toFixed(2)}</td><td><span className={card.stock < 2 ? "stock-low" : ""}>{card.stock}</span></td><td><span className={`cms-status ${card.status}`}>{card.status}</span></td><td><button className="row-action" onClick={() => openCard(card)}>Edit</button><button className="row-delete" onClick={() => void mutate({ action: "delete_card", id: card.id })}>×</button></td></tr>)}
           {!data.cards.length && <tr><td colSpan={6} className="cms-empty">No cards yet. Add your first card to begin.</td></tr>}
         </tbody></table></div>
       </>}

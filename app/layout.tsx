@@ -6,6 +6,7 @@ const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 const mono = Geist_Mono({ variable: "--font-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://tgmax.cards"),
   title: "TGMAX — Collect. Trade. Connect.",
   description: "Trading cards in Beirut: Pokémon, FIFA, Yu-Gi-Oh!, One Piece and more.",
   openGraph: {
