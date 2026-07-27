@@ -59,6 +59,7 @@ export async function GET() {
     wantedCards: (wantedCards ?? []).map(item => ({
       ...item,
       category_name: Array.isArray(item.categories) ? item.categories[0]?.name : (item.categories as { name?: string } | null)?.name,
+      image_url: item.image_key ? auth.admin.storage.from("card-images").getPublicUrl(item.image_key).data.publicUrl : null,
     })),
   });
 }
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
     ({ error } = await auth.admin.from("wanted_cards").insert({
       title: String(body.title ?? "").trim(), category_id: Number(body.categoryId), details: String(body.details ?? "").trim(),
       priority: String(body.priority ?? "Open to offers").trim(), tone: String(body.tone ?? "purple"),
-      status: String(body.status ?? "active"), sort_order: Number(body.sortOrder ?? 0),
+      status: String(body.status ?? "active"), sort_order: Number(body.sortOrder ?? 0), image_key: body.imageKey ? String(body.imageKey) : null,
     }));
   } else if (action === "create_user") {
     if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
@@ -144,11 +145,14 @@ export async function POST(request: NextRequest) {
     }
     ({ error } = await auth.admin.from("card_options").update({ label, value: nextValue, sort_order: Number(body.sortOrder ?? 0) }).eq("id", Number(body.id)));
   } else if (action === "update_wanted_card") {
+    const { data: previousWanted } = await auth.admin.from("wanted_cards").select("image_key").eq("id", Number(body.id)).single();
+    const nextWantedImage = body.imageKey ? String(body.imageKey) : null;
     ({ error } = await auth.admin.from("wanted_cards").update({
       title: String(body.title ?? "").trim(), category_id: Number(body.categoryId), details: String(body.details ?? "").trim(),
       priority: String(body.priority ?? "Open to offers").trim(), tone: String(body.tone ?? "purple"),
-      status: String(body.status ?? "active"), sort_order: Number(body.sortOrder ?? 0), updated_at: new Date().toISOString(),
+      status: String(body.status ?? "active"), sort_order: Number(body.sortOrder ?? 0), image_key: nextWantedImage, updated_at: new Date().toISOString(),
     }).eq("id", Number(body.id)));
+    if (!error && previousWanted?.image_key && previousWanted.image_key !== nextWantedImage) await auth.admin.storage.from("card-images").remove([previousWanted.image_key]);
   } else if (action === "delete_card") {
     const { data: card } = await auth.admin.from("cards").select("image_key,back_image_key").eq("id", Number(body.id)).single();
     ({ error } = await auth.admin.from("cards").delete().eq("id", Number(body.id)));
@@ -166,7 +170,9 @@ export async function POST(request: NextRequest) {
     if (usage) return NextResponse.json({ error: `This option is used by ${usage} card${usage === 1 ? "" : "s"}` }, { status: 400 });
     ({ error } = await auth.admin.from("card_options").delete().eq("id", Number(body.id)));
   } else if (action === "delete_wanted_card") {
+    const { data: wanted } = await auth.admin.from("wanted_cards").select("image_key").eq("id", Number(body.id)).single();
     ({ error } = await auth.admin.from("wanted_cards").delete().eq("id", Number(body.id)));
+    if (!error && wanted?.image_key) await auth.admin.storage.from("card-images").remove([wanted.image_key]);
   } else {
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   }

@@ -7,10 +7,11 @@ type Category = { id: number; name: string; slug: string; accent: string; item_c
 type Card = { id: number; title: string; category_id: number; category_name: string; card_code: string; image_key: string | null; image_url: string | null; back_image_key: string | null; back_image_url: string | null; price_cents: number; stock: number; condition: string; status: string };
 type User = { id: number; name: string; email: string; username: string | null; role: string; status: string };
 type CardOption = { id: number; option_type: "status" | "condition"; label: string; value: string; sort_order: number };
-type WantedCard = { id: number; title: string; category_id: number; category_name: string; details: string; priority: string; tone: string; status: string; sort_order: number };
+type WantedCard = { id: number; title: string; category_id: number; category_name: string; details: string; priority: string; tone: string; status: string; sort_order: number; image_key: string | null; image_url: string | null };
 type CMSData = { currentUser: User; categories: Category[]; cards: Card[]; users: User[]; options: CardOption[]; wantedCards: WantedCard[] };
 
 const emptyCard = { title: "", categoryId: "", cardCode: "", imageKey: "", backImageKey: "", price: "", stock: "1", condition: "Near mint", status: "active" };
+const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
 
 export function CardsCMS({ signedInAs }: { signedInAs: string }) {
   const [data, setData] = useState<CMSData | null>(null);
@@ -96,6 +97,22 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
     reader.readAsDataURL(file);
   }
 
+  async function chooseSmartImage(file: File | undefined, side: "front" | "back") {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const cropped = await smartCropCard(file);
+      if (side === "front") chooseImage(cropped);
+      else chooseBackImage(cropped);
+      setMessage("Smart scan cropped and enhanced. Review the preview before saving.");
+    } catch {
+      if (side === "front") chooseImage(file);
+      else chooseBackImage(file);
+      setMessage("Automatic crop was unavailable; the original scan is ready to review.");
+    }
+    setUploading(false);
+  }
+
   if (!data) return <main className="cms-loading"><div className="brand-mark"><span>TG</span></div><p>{message || "Loading TGMAX CMS…"}</p></main>;
   const totalStock = data.cards.reduce((sum, card) => sum + card.stock, 0);
   const value = data.cards.reduce((sum, card) => sum + card.price_cents * card.stock, 0) / 100;
@@ -134,7 +151,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
           {(inventoryQuery || inventoryCategory !== "all" || inventoryCondition !== "all") && <button onClick={() => { setInventoryQuery(""); setInventoryCategory("all"); setInventoryCondition("all"); }}>Clear</button>}
         </div>
         <div className="cms-table-wrap"><table><thead><tr><th>Card</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th /></tr></thead><tbody>
-          {filteredCards.map(card => <tr key={card.id}><td><div className="cms-card-cell">{card.image_url ? <img src={card.image_url} alt="" /> : <span className="cms-card-placeholder">TG</span>}<span><b>{card.title}</b><small>{card.card_code || "No card code"} · {card.condition}</small></span></div></td><td>{card.category_name}</td><td>${(card.price_cents / 100).toFixed(2)}</td><td><span className={card.stock < 2 ? "stock-low" : ""}>{card.stock}</span></td><td><span className={`cms-status ${card.status}`}>{card.status}</span></td><td><button className="row-action" onClick={() => openCard(card)}>Edit</button><button className="row-delete" onClick={() => void mutate({ action: "delete_card", id: card.id })}>×</button></td></tr>)}
+          {filteredCards.map(card => <tr key={card.id}><td><div className="cms-card-cell">{card.image_url ? <img src={card.image_url} alt="" /> : <span className="cms-card-placeholder">TG</span>}<span><b>{card.title}</b><small>{card.card_code || "No card code"} · {card.condition}</small></span></div></td><td>{card.category_name}</td><td>{formatPrice(card.price_cents)}</td><td><span className={card.stock < 2 ? "stock-low" : ""}>{card.stock}</span></td><td><span className={`cms-status ${card.status}`}>{card.status}</span></td><td><button className="row-action" onClick={() => openCard(card)}>Edit</button><button className="row-delete" onClick={() => void mutate({ action: "delete_card", id: card.id })}>×</button></td></tr>)}
           {!filteredCards.length && <tr><td colSpan={6} className="cms-empty">{data.cards.length ? "No cards match these filters." : "No cards yet. Add your first card to begin."}</td></tr>}
         </tbody></table></div>
       </>}
@@ -163,7 +180,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
           <div className="image-upload">
             {imagePreview ? <img src={imagePreview} alt="Card front preview" /> : <div className="image-upload-empty"><b>+</b><span>Add front photo</span></div>}
             <div><label className="upload-button">Choose front<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={e => chooseImage(e.target.files?.[0])} /></label>
-              <label className="upload-button scan-button">Scan front<input type="file" accept="image/*" capture="environment" onChange={e => chooseImage(e.target.files?.[0])} /></label>
+              <label className="upload-button scan-button">Smart scan<input type="file" accept="image/*" capture="environment" onChange={e => void chooseSmartImage(e.target.files?.[0], "front")} /></label>
               {imagePreview && <button type="button" className="remove-image" onClick={() => { setImageFile(null); setImagePreview(""); setCardForm({ ...cardForm, imageKey: "" }); }}>Remove</button>}</div>
           </div>
         </label>
@@ -171,7 +188,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
           <div className="image-upload">
             {backImagePreview ? <img src={backImagePreview} alt="Card back preview" /> : <div className="image-upload-empty"><b>↻</b><span>Add back photo</span></div>}
             <div><label className="upload-button">Choose back<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={e => chooseBackImage(e.target.files?.[0])} /></label>
-              <label className="upload-button scan-button">Scan back<input type="file" accept="image/*" capture="environment" onChange={e => chooseBackImage(e.target.files?.[0])} /></label>
+              <label className="upload-button scan-button">Smart scan<input type="file" accept="image/*" capture="environment" onChange={e => void chooseSmartImage(e.target.files?.[0], "back")} /></label>
               {backImagePreview && <button type="button" className="remove-image" onClick={() => { setBackImageFile(null); setBackImagePreview(""); setCardForm({ ...cardForm, backImageKey: "" }); }}>Remove</button>}</div>
           </div>
         </label>
@@ -198,14 +215,59 @@ function WantedCardForm({ wantedCard, categories, onSubmit }: { wantedCard: Want
   const [tone, setTone] = useState(wantedCard?.tone ?? "purple");
   const [status, setStatus] = useState(wantedCard?.status ?? "active");
   const [sortOrder, setSortOrder] = useState(String(wantedCard?.sort_order ?? 0));
-  return <form onSubmit={event => { event.preventDefault(); void onSubmit({ action: wantedCard ? "update_wanted_card" : "create_wanted_card", id: wantedCard?.id, title, categoryId, details, priority, tone, status, sortOrder: Number(sortOrder) }); }}>
+  const [imageKey, setImageKey] = useState(wantedCard?.image_key ?? "");
+  const [imagePreview, setImagePreview] = useState(wantedCard?.image_url ?? "");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  function preview(file: File) { setImageFile(file); const reader = new FileReader(); reader.onload = () => setImagePreview(String(reader.result ?? "")); reader.readAsDataURL(file); }
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); let nextImageKey = imageKey;
+    if (imageFile) {
+      const upload = new FormData(); upload.append("image", imageFile);
+      const response = await fetch("/api/cms/upload", { method: "POST", body: upload });
+      const result = await response.json() as { key?: string };
+      if (!response.ok || !result.key) { setSaving(false); return; }
+      nextImageKey = result.key;
+    }
+    await onSubmit({ action: wantedCard ? "update_wanted_card" : "create_wanted_card", id: wantedCard?.id, title, categoryId, details, priority, tone, status, sortOrder: Number(sortOrder), imageKey: nextImageKey });
+    setSaving(false);
+  }
+  async function scan(file?: File) { if (!file) return; setSaving(true); try { preview(await smartCropCard(file)); } catch { preview(file); } setSaving(false); }
+  return <form onSubmit={submit}>
+    <label>Wanted card photo <span className="field-hint">Optional</span><div className="image-upload">{imagePreview ? <img src={imagePreview} alt="Wanted card preview" /> : <div className="image-upload-empty"><b>+</b><span>Add a photo</span></div>}<div><label className="upload-button">Choose image<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={event => event.target.files?.[0] && preview(event.target.files[0])} /></label><label className="upload-button scan-button">Smart scan<input type="file" accept="image/*" capture="environment" onChange={event => void scan(event.target.files?.[0])} /></label>{imagePreview && <button type="button" className="remove-image" onClick={() => { setImageFile(null); setImagePreview(""); setImageKey(""); }}>Remove</button>}</div></div></label>
     <label>Card title<input required value={title} onChange={event => setTitle(event.target.value)} placeholder="e.g. Gengar VMAX" /></label>
     <div className="form-split"><label>Category<select required value={categoryId} onChange={event => setCategoryId(event.target.value)}>{categories.map(category => <option value={category.id} key={category.id}>{category.name}</option>)}</select></label><label>Priority label<input required value={priority} onChange={event => setPriority(event.target.value)} placeholder="High priority" /></label></div>
     <label>Details<textarea value={details} onChange={event => setDetails(event.target.value)} placeholder="Set, card number, edition, preferred condition…" rows={3} /></label>
     <div className="form-split"><label>Color<select value={tone} onChange={event => setTone(event.target.value)}><option value="purple">Purple</option><option value="blue">Blue</option><option value="pink">Pink</option><option value="red">Red</option></select></label><label>Status<select value={status} onChange={event => setStatus(event.target.value)}><option value="active">Active</option><option value="draft">Draft</option></select></label></div>
     <label>Sort order<input type="number" value={sortOrder} onChange={event => setSortOrder(event.target.value)} /><span className="field-help">Lower numbers appear first on the Wanted Cards page.</span></label>
-    <button type="submit" className="cms-submit">{wantedCard ? "Save wanted card" : "Add wanted card"} →</button>
+    <button type="submit" className="cms-submit" disabled={saving}>{saving ? "Processing…" : wantedCard ? "Save wanted card →" : "Add wanted card →"}</button>
   </form>;
+}
+
+async function smartCropCard(file: File) {
+  const bitmap = await createImageBitmap(file);
+  const targetRatio = 5 / 7;
+  let sourceWidth = bitmap.width;
+  let sourceHeight = bitmap.height;
+  let sourceX = 0;
+  let sourceY = 0;
+  if (sourceWidth / sourceHeight > targetRatio) {
+    sourceWidth = sourceHeight * targetRatio;
+    sourceX = (bitmap.width - sourceWidth) / 2;
+  } else {
+    sourceHeight = sourceWidth / targetRatio;
+    sourceY = (bitmap.height - sourceHeight) / 2;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = 1000; canvas.height = 1400;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas unavailable");
+  context.filter = "contrast(1.08) saturate(1.06) brightness(1.02)";
+  context.drawImage(bitmap, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/jpeg", .9));
+  if (!blob) throw new Error("Unable to process scan");
+  return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}-smart-scan.jpg`, { type: "image/jpeg" });
 }
 
 function OptionForm({ option, onSubmit }: { option: CardOption | null; onSubmit: (data: Record<string, unknown>) => Promise<boolean> }) {

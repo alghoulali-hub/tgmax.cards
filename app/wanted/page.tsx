@@ -1,12 +1,13 @@
 import { createAdminClient } from "../../lib/supabase/admin";
 import { Footer, Header } from "../shop";
 import { WantedRequestForm } from "./WantedRequestForm";
+import { ZoomableImage } from "../ZoomableImage";
 
 export const dynamic = "force-dynamic";
 
 const fallbackNeeds = [
-  { id: 1, series: "Pokémon", title: "Gengar VMAX", details: "Fusion Strike · 271/264", priority: "High priority", tone: "purple" },
-  { id: 2, series: "FIFA", title: "Cristiano Ronaldo", details: "Panini Prizm · Signature", priority: "Open to offers", tone: "blue" },
+  { id: 1, series: "Pokémon", title: "Gengar VMAX", details: "Fusion Strike · 271/264", priority: "High priority", tone: "purple", imageUrl: null as string | null },
+  { id: 2, series: "FIFA", title: "Cristiano Ronaldo", details: "Panini Prizm · Signature", priority: "Open to offers", tone: "blue", imageUrl: null as string | null },
 ];
 
 function wantedWhatsapp(message: string) {
@@ -19,13 +20,14 @@ export default async function WantedPage() {
   try {
     const supabase = createAdminClient();
     const [{ data: wanted }, { data: categories }] = await Promise.all([
-      supabase.from("wanted_cards").select("id,title,details,priority,tone,categories(name)").eq("status", "active").order("sort_order").order("updated_at", { ascending: false }),
+      supabase.from("wanted_cards").select("id,title,details,priority,tone,image_key,categories(name)").eq("status", "active").order("sort_order").order("updated_at", { ascending: false }),
       supabase.from("categories").select("name").order("name"),
     ]);
     if (wanted?.length) needs = wanted.map(item => ({
       id: item.id,
       series: Array.isArray(item.categories) ? item.categories[0]?.name ?? "Other" : (item.categories as { name?: string } | null)?.name ?? "Other",
       title: item.title, details: item.details, priority: item.priority, tone: item.tone,
+      imageUrl: item.image_key ? supabase.storage.from("card-images").getPublicUrl(item.image_key).data.publicUrl : null,
     }));
     if (categories?.length) categoryNames = categories.map(category => category.name);
   } catch {}
@@ -39,7 +41,7 @@ export default async function WantedPage() {
     </section>
     <section className="wanted-grid">
       {needs.map(item => <article className={`wanted-card ${item.tone}`} key={item.id}>
-        <span className="series">{item.series}</span><div className="wanted-symbol">◎</div>
+        <span className="series">{item.series}</span>{item.imageUrl ? <ZoomableImage src={item.imageUrl} alt={item.title} className="wanted-photo" /> : <div className="wanted-symbol">◎</div>}
         <h2>{item.title}</h2><p>{item.details}</p><span className="status">{item.priority}</span>
         <a href={wantedWhatsapp(`Hi TGMAX! I have ${item.title}. I can send photos and details.`)} target="_blank" rel="noreferrer">I have this card →</a>
       </article>)}

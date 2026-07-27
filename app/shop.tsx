@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ZoomableImage } from "./ZoomableImage";
 
 const phone = "96171234567";
 
@@ -49,8 +50,8 @@ function CardArt({ item }: { item: Product }) {
   if (item.imageUrl) {
     return (
       <div className={`card-art photo-card${item.backImageUrl ? " can-flip" : ""}`} tabIndex={item.backImageUrl ? 0 : undefined} aria-label={item.backImageUrl ? `${item.title}: hover or focus to see the back` : item.title}>
-        <div className="card-face card-front"><img src={item.imageUrl} alt={`${item.title} front`} /></div>
-        {item.backImageUrl && <div className="card-face card-back"><img src={item.backImageUrl} alt={`${item.title} back`} /></div>}
+        <div className="card-face card-front"><ZoomableImage src={item.imageUrl} alt={`${item.title} front`} /></div>
+        {item.backImageUrl && <div className="card-face card-back"><ZoomableImage src={item.backImageUrl} alt={`${item.title} back`} /></div>}
       </div>
     );
   }
@@ -64,6 +65,10 @@ function CardArt({ item }: { item: Product }) {
 
 function whatsapp(text: string) {
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+}
+
+function money(value: number) {
+  return `$${value.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
 }
 
 export function ShopHome({ managedProducts = [] }: { managedProducts?: Product[] }) {
@@ -121,7 +126,7 @@ export function ShopHome({ managedProducts = [] }: { managedProducts?: Product[]
               <div className="product-art"><span className="tag">{item.tag}</span><CardArt item={item} />{item.backImageUrl && <span className="flip-hint">Hover to flip ↻</span>}</div>
               <div className="product-info">
                 <span>{item.series}</span><h3>{item.title}</h3>
-                <div className="price-row"><strong>${item.price}.00</strong><span>{item.condition}</span></div>
+                <div className="price-row"><strong>{money(item.price)}</strong><span>{item.condition}</span></div>
                 <div className="card-actions">
                   <button onClick={() => setCart([...cart, item.id])}>Add to bag</button>
                   <a href={whatsapp(`Hi TGMAX! Is the ${item.title} card still available?`)} target="_blank" rel="noreferrer" aria-label={`Ask about ${item.title} on WhatsApp`}>↗</a>
@@ -144,9 +149,9 @@ export function ShopHome({ managedProducts = [] }: { managedProducts?: Product[]
           <button className="close" onClick={() => setCartOpen(false)}>×</button>
           <span className="kicker">Your selection</span><h2>Shopping bag</h2>
           {cart.length === 0 ? <p className="empty">Your bag is waiting for a great card.</p> :
-            <div className="bag-list">{cart.map((id, index) => { const p = products.find((x) => x.id === id)!; return <div key={`${id}-${index}`}><span>{p.title}<small>{p.series}</small></span><b>${p.price}</b><button onClick={() => setCart(cart.filter((_, i) => i !== index))}>×</button></div>; })}</div>}
-          <div className="bag-total"><span>Total</span><b>${total}.00</b></div>
-          <a className="checkout" href={whatsapp(`Hi TGMAX! I’d like to order: ${cart.map((id) => products.find((p) => p.id === id)?.title).join(", ")}. Total: $${total}.`)} target="_blank" rel="noreferrer">Order on WhatsApp</a>
+            <div className="bag-list">{cart.map((id, index) => { const p = products.find((x) => x.id === id)!; return <div key={`${id}-${index}`}><span>{p.title}<small>{p.series}</small></span><b>{money(p.price)}</b><button onClick={() => setCart(cart.filter((_, i) => i !== index))}>×</button></div>; })}</div>}
+          <div className="bag-total"><span>Total</span><b>{money(total)}</b></div>
+          <a className="checkout" href={whatsapp(`Hi TGMAX! I’d like to order: ${cart.map((id) => products.find((p) => p.id === id)?.title).join(", ")}. Total: ${money(total)}.`)} target="_blank" rel="noreferrer">Order on WhatsApp</a>
         </aside>
       </div>}
     </main>
