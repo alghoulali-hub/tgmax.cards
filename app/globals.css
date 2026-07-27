@@ -63,6 +63,8 @@ h1 em { color:#5d8f31; font-family:Georgia,serif; font-weight:400; }
 .card-art.photo-card .card-back{transform:rotateY(180deg)}
 .card-art.photo-card.can-flip:hover,.card-art.photo-card.can-flip:focus{transform:rotateY(180deg)!important;outline:none}
 .flip-hint{position:absolute;right:12px;bottom:10px;background:rgba(24,34,29,.82);color:#fff;padding:6px 9px;font-size:10px;letter-spacing:.04em}
+.card-art.clean-placeholder{display:grid;place-items:center}
+.card-art.clean-placeholder>span{font-size:74px;font-weight:900;text-shadow:0 4px 0 rgba(255,255,255,.38)}
 .tag { position:absolute; left:12px; top:12px; z-index:3; background:var(--lime); padding:6px 9px; font:10px var(--font-mono); text-transform:uppercase; }
 .product-info { padding:18px 6px 5px; }
 .product-info>span { font:10px var(--font-mono); color:#728078; text-transform:uppercase; letter-spacing:.13em; }

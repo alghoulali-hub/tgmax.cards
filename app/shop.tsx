@@ -55,15 +55,9 @@ function CardArt({ item }: { item: Product }) {
     );
   }
   return (
-    <div className={`card-art ${item.tone}`}>
+    <div className={`card-art clean-placeholder ${item.tone}`} aria-label={`${item.title} image coming soon`}>
       <div className="shine" />
-      <div className="mini-head"><b>{item.title}</b><span>HP 180</span></div>
-      <div className={item.imageUrl ? "orb has-photo" : "orb"}>{item.imageUrl ? <img src={item.imageUrl} alt="" /> : <span>{item.icon}</span>}</div>
-      <div className="card-copy">
-        <b>{item.series} collector card</b>
-        <small>Premium finish · TGMAX verified</small>
-      </div>
-      <div className="code">{item.code}</div>
+      <span>{item.icon}</span>
     </div>
   );
 }
