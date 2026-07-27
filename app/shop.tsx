@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 const phone = "96171234567";
 
-export type Product = { id: number; title: string; series: string; price: number; tone: string; code: string; icon: string; tag: string };
+export type Product = { id: number; title: string; series: string; price: number; tone: string; code: string; icon: string; tag: string; imageUrl?: string };
 
 const sampleProducts: Product[] = [
   { id: 1, title: "Pikachu VMAX", series: "Pokémon", price: 48, tone: "yellow", code: "025/185", icon: "⚡", tag: "Popular" },
@@ -50,7 +50,7 @@ function CardArt({ item }: { item: Product }) {
     <div className={`card-art ${item.tone}`}>
       <div className="shine" />
       <div className="mini-head"><b>{item.title}</b><span>HP 180</span></div>
-      <div className="orb"><span>{item.icon}</span></div>
+      <div className={item.imageUrl ? "orb has-photo" : "orb"}>{item.imageUrl ? <img src={item.imageUrl} alt="" /> : <span>{item.icon}</span>}</div>
       <div className="card-copy">
         <b>{item.series} collector card</b>
         <small>Premium finish · TGMAX verified</small>

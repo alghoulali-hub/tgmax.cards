@@ -4,11 +4,11 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type Category = { id: number; name: string; slug: string; accent: string; item_count: number };
-type Card = { id: number; title: string; category_id: number; category_name: string; card_code: string; price_cents: number; stock: number; condition: string; status: string };
+type Card = { id: number; title: string; category_id: number; category_name: string; card_code: string; image_key: string | null; price_cents: number; stock: number; condition: string; status: string };
 type User = { id: number; name: string; email: string; role: string; status: string };
 type CMSData = { currentUser: User; categories: Category[]; cards: Card[]; users: User[] };
 
-const emptyCard = { title: "", categoryId: "", cardCode: "", price: "", stock: "1", condition: "Near mint", status: "active" };
+const emptyCard = { title: "", categoryId: "", cardCode: "", imageKey: "", price: "", stock: "1", condition: "Near mint", status: "active" };
 
 export function CardsCMS({ signedInAs }: { signedInAs: string }) {
   const [data, setData] = useState<CMSData | null>(null);
@@ -16,6 +16,9 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
   const [modal, setModal] = useState<"card" | "category" | "user" | null>(null);
   const [editing, setEditing] = useState<Card | Category | User | null>(null);
   const [cardForm, setCardForm] = useState(emptyCard);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
 
   const load = useCallback(async () => {
@@ -37,13 +40,34 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
 
   function openCard(card?: Card) {
     setEditing(card ?? null);
-    setCardForm(card ? { title: card.title, categoryId: String(card.category_id), cardCode: card.card_code, price: String(card.price_cents / 100), stock: String(card.stock), condition: card.condition, status: card.status } : { ...emptyCard, categoryId: String(data?.categories[0]?.id ?? "") });
+    setCardForm(card ? { title: card.title, categoryId: String(card.category_id), cardCode: card.card_code, imageKey: card.image_key ?? "", price: String(card.price_cents / 100), stock: String(card.stock), condition: card.condition, status: card.status } : { ...emptyCard, categoryId: String(data?.categories[0]?.id ?? "") });
+    setImageFile(null);
+    setImagePreview(card?.image_key ? `/api/card-image/${card.image_key}` : "");
     setModal("card");
   }
 
   async function submitCard(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await mutate({ action: editing ? "update_card" : "create_card", id: editing && "id" in editing ? editing.id : undefined, ...cardForm });
+    setUploading(true);
+    let imageKey = cardForm.imageKey;
+    if (imageFile) {
+      const upload = new FormData();
+      upload.append("image", imageFile);
+      const response = await fetch("/api/cms/upload", { method: "POST", body: upload });
+      const result = await response.json() as { key?: string; error?: string };
+      if (!response.ok || !result.key) { setMessage(result.error ?? "Image upload failed"); setUploading(false); return; }
+      imageKey = result.key;
+    }
+    await mutate({ action: editing ? "update_card" : "create_card", id: editing && "id" in editing ? editing.id : undefined, ...cardForm, imageKey });
+    setUploading(false);
+  }
+
+  function chooseImage(file?: File) {
+    if (!file) return;
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(String(reader.result ?? ""));
+    reader.readAsDataURL(file);
   }
 
   if (!data) return <main className="cms-loading"><div className="brand-mark"><span>TG</span></div><p>{message || "Loading TGMAX CMS…"}</p></main>;
@@ -70,7 +94,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
       {tab === "cards" && <>
         <div className="cms-stats"><article><small>Total cards</small><b>{data.cards.length}</b><span>Unique listings</span></article><article><small>Units in stock</small><b>{totalStock}</b><span>Across all categories</span></article><article><small>Inventory value</small><b>${value.toFixed(0)}</b><span>At listed prices</span></article></div>
         <div className="cms-table-wrap"><table><thead><tr><th>Card</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th /></tr></thead><tbody>
-          {data.cards.map(card => <tr key={card.id}><td><b>{card.title}</b><small>{card.card_code || "No card code"} · {card.condition}</small></td><td>{card.category_name}</td><td>${(card.price_cents / 100).toFixed(2)}</td><td><span className={card.stock < 2 ? "stock-low" : ""}>{card.stock}</span></td><td><span className={`cms-status ${card.status}`}>{card.status}</span></td><td><button className="row-action" onClick={() => openCard(card)}>Edit</button><button className="row-delete" onClick={() => void mutate({ action: "delete_card", id: card.id })}>×</button></td></tr>)}
+          {data.cards.map(card => <tr key={card.id}><td><div className="cms-card-cell">{card.image_key ? <img src={`/api/card-image/${card.image_key}`} alt="" /> : <span className="cms-card-placeholder">TG</span>}<span><b>{card.title}</b><small>{card.card_code || "No card code"} · {card.condition}</small></span></div></td><td>{card.category_name}</td><td>${(card.price_cents / 100).toFixed(2)}</td><td><span className={card.stock < 2 ? "stock-low" : ""}>{card.stock}</span></td><td><span className={`cms-status ${card.status}`}>{card.status}</span></td><td><button className="row-action" onClick={() => openCard(card)}>Edit</button><button className="row-delete" onClick={() => void mutate({ action: "delete_card", id: card.id })}>×</button></td></tr>)}
           {!data.cards.length && <tr><td colSpan={6} className="cms-empty">No cards yet. Add your first card to begin.</td></tr>}
         </tbody></table></div>
       </>}
@@ -82,11 +106,18 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
       <button className="cms-modal-close" onClick={() => { setModal(null); setEditing(null); }}>×</button>
       <span className="kicker">{editing ? "Update record" : "Create new"}</span><h2>{modal === "card" ? `${editing ? "Edit" : "Add"} card` : modal === "category" ? `${editing ? "Edit" : "Add"} category` : `${editing ? "Manage" : "Add"} user`}</h2>
       {modal === "card" && <form onSubmit={submitCard}>
+        <label>Card photo <span className="field-hint">JPG, PNG, WebP or AVIF · max 5 MB</span>
+          <div className="image-upload">
+            {imagePreview ? <img src={imagePreview} alt="Card preview" /> : <div className="image-upload-empty"><b>+</b><span>Add a card photo</span></div>}
+            <div><label className="upload-button">Choose image<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={e => chooseImage(e.target.files?.[0])} /></label>
+              {imagePreview && <button type="button" className="remove-image" onClick={() => { setImageFile(null); setImagePreview(""); setCardForm({ ...cardForm, imageKey: "" }); }}>Remove</button>}</div>
+          </div>
+        </label>
         <label>Card title<input required value={cardForm.title} onChange={e => setCardForm({ ...cardForm, title: e.target.value })} placeholder="e.g. Charizard ex" /></label>
         <div className="form-split"><label>Category<select required value={cardForm.categoryId} onChange={e => setCardForm({ ...cardForm, categoryId: e.target.value })}><option value="">Choose…</option>{data.categories.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label><label>Card code<input value={cardForm.cardCode} onChange={e => setCardForm({ ...cardForm, cardCode: e.target.value })} placeholder="125/197" /></label></div>
         <div className="form-split"><label>Price ($)<input required type="number" min="0" step=".01" value={cardForm.price} onChange={e => setCardForm({ ...cardForm, price: e.target.value })} /></label><label>Stock<input required type="number" min="0" value={cardForm.stock} onChange={e => setCardForm({ ...cardForm, stock: e.target.value })} /></label></div>
         <div className="form-split"><label>Condition<select value={cardForm.condition} onChange={e => setCardForm({ ...cardForm, condition: e.target.value })}><option>Mint</option><option>Near mint</option><option>Excellent</option><option>Good</option><option>Played</option></select></label><label>Status<select value={cardForm.status} onChange={e => setCardForm({ ...cardForm, status: e.target.value })}><option value="active">Active</option><option value="draft">Draft</option><option value="sold">Sold</option></select></label></div>
-        <button type="submit" className="cms-submit">{editing ? "Save changes" : "Add to inventory"} →</button>
+        <button type="submit" className="cms-submit" disabled={uploading}>{uploading ? "Uploading photo…" : editing ? "Save changes →" : "Add to inventory →"}</button>
       </form>}
       {modal === "category" && <CategoryForm category={editing as Category | null} onSubmit={mutate} />}
       {modal === "user" && <UserForm user={editing as User | null} onSubmit={mutate} />}

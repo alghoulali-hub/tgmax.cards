@@ -27,6 +27,7 @@ async function initialize() {
       title TEXT NOT NULL,
       category_id INTEGER NOT NULL,
       card_code TEXT NOT NULL DEFAULT '',
+      image_key TEXT,
       price_cents INTEGER NOT NULL DEFAULT 0,
       stock INTEGER NOT NULL DEFAULT 0,
       condition TEXT NOT NULL DEFAULT 'Near mint',
@@ -90,9 +91,10 @@ export async function POST(request: NextRequest) {
         .bind(name, slugify(name), String(body.accent ?? "#d8ff3e"), now).run();
     } else if (action === "create_card") {
       await env.DB.prepare(`INSERT INTO cards
-        (title, category_id, card_code, price_cents, stock, condition, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        (title, category_id, card_code, image_key, price_cents, stock, condition, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .bind(String(body.title ?? "").trim(), Number(body.categoryId), String(body.cardCode ?? "").trim(),
+          body.imageKey ? String(body.imageKey) : null,
           Math.round(Number(body.price ?? 0) * 100), Math.max(0, Number(body.stock ?? 0)),
           String(body.condition ?? "Near mint"), String(body.status ?? "active"), now, now).run();
     } else if (action === "create_user") {
@@ -103,9 +105,12 @@ export async function POST(request: NextRequest) {
       await env.DB.prepare("INSERT INTO cms_users (email, name, role, status, created_at) VALUES (?, ?, ?, 'active', ?)")
         .bind(email, name, String(body.role ?? "editor"), now).run();
     } else if (action === "update_card") {
-      await env.DB.prepare(`UPDATE cards SET title=?, category_id=?, card_code=?, price_cents=?, stock=?, condition=?, status=?, updated_at=? WHERE id=?`)
-        .bind(String(body.title), Number(body.categoryId), String(body.cardCode ?? ""), Math.round(Number(body.price) * 100),
+      const previous = await env.DB.prepare("SELECT image_key FROM cards WHERE id=?").bind(Number(body.id)).first<{ image_key: string | null }>();
+      const nextImageKey = body.imageKey ? String(body.imageKey) : null;
+      await env.DB.prepare(`UPDATE cards SET title=?, category_id=?, card_code=?, image_key=?, price_cents=?, stock=?, condition=?, status=?, updated_at=? WHERE id=?`)
+        .bind(String(body.title), Number(body.categoryId), String(body.cardCode ?? ""), nextImageKey, Math.round(Number(body.price) * 100),
           Math.max(0, Number(body.stock)), String(body.condition), String(body.status), now, Number(body.id)).run();
+      if (previous?.image_key && previous.image_key !== nextImageKey) await env.MEDIA.delete(previous.image_key);
     } else if (action === "update_category") {
       const name = String(body.name ?? "").trim();
       await env.DB.prepare("UPDATE categories SET name=?, slug=?, accent=? WHERE id=?")
@@ -116,7 +121,9 @@ export async function POST(request: NextRequest) {
       await env.DB.prepare("UPDATE cms_users SET name=?, role=?, status=? WHERE id=?")
         .bind(String(body.name), String(body.role), String(body.status), Number(body.id)).run();
     } else if (action === "delete_card") {
+      const card = await env.DB.prepare("SELECT image_key FROM cards WHERE id=?").bind(Number(body.id)).first<{ image_key: string | null }>();
       await env.DB.prepare("DELETE FROM cards WHERE id=?").bind(Number(body.id)).run();
+      if (card?.image_key) await env.MEDIA.delete(card.image_key);
     } else if (action === "delete_category") {
       if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
       await env.DB.prepare("DELETE FROM categories WHERE id=?").bind(Number(body.id)).run();

@@ -22,6 +22,7 @@ export const cards = sqliteTable("cards", {
   title: text("title").notNull(),
   categoryId: integer("category_id").notNull().references(() => categories.id, { onDelete: "restrict" }),
   cardCode: text("card_code").notNull().default(""),
+  imageKey: text("image_key"),
   priceCents: integer("price_cents").notNull().default(0),
   stock: integer("stock").notNull().default(0),
   condition: text("condition").notNull().default("Near mint"),
