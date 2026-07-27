@@ -49,9 +49,11 @@ export function Header({ cart = 0, onCart }: { cart?: number; onCart?: () => voi
 function CardArt({ item }: { item: Product }) {
   if (item.imageUrl) {
     return (
-      <div className={`card-art photo-card${item.backImageUrl ? " can-flip" : ""}`} tabIndex={item.backImageUrl ? 0 : undefined} aria-label={item.backImageUrl ? `${item.title}: hover or focus to see the back` : item.title}>
-        <div className="card-face card-front"><ZoomableImage src={item.imageUrl} alt={`${item.title} front`} /></div>
-        {item.backImageUrl && <div className="card-face card-back"><ZoomableImage src={item.backImageUrl} alt={`${item.title} back`} /></div>}
+      <div className={`card-flip-shell${item.backImageUrl ? " can-flip" : ""}`} tabIndex={item.backImageUrl ? 0 : undefined} aria-label={item.backImageUrl ? `${item.title}: hover or focus to see the back` : item.title}>
+        <div className="card-art photo-card">
+          <div className="card-face card-front"><ZoomableImage src={item.imageUrl} alt={`${item.title} front`} /></div>
+          {item.backImageUrl && <div className="card-face card-back"><ZoomableImage src={item.backImageUrl} alt={`${item.title} back`} /></div>}
+        </div>
       </div>
     );
   }
