@@ -1,5 +1,5 @@
 import { createAdminClient } from "../../lib/supabase/admin";
-import { Footer, Header, whatsapp } from "../shop";
+import { Footer, Header } from "../shop";
 import { WantedRequestForm } from "./WantedRequestForm";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +8,10 @@ const fallbackNeeds = [
   { id: 1, series: "Pokémon", title: "Gengar VMAX", details: "Fusion Strike · 271/264", priority: "High priority", tone: "purple" },
   { id: 2, series: "FIFA", title: "Cristiano Ronaldo", details: "Panini Prizm · Signature", priority: "Open to offers", tone: "blue" },
 ];
+
+function wantedWhatsapp(message: string) {
+  return `https://wa.me/96171234567?text=${encodeURIComponent(message)}`;
+}
 
 export default async function WantedPage() {
   let needs = fallbackNeeds;
@@ -37,7 +41,7 @@ export default async function WantedPage() {
       {needs.map(item => <article className={`wanted-card ${item.tone}`} key={item.id}>
         <span className="series">{item.series}</span><div className="wanted-symbol">◎</div>
         <h2>{item.title}</h2><p>{item.details}</p><span className="status">{item.priority}</span>
-        <a href={whatsapp(`Hi TGMAX! I have ${item.title}. I can send photos and details.`)} target="_blank" rel="noreferrer">I have this card →</a>
+        <a href={wantedWhatsapp(`Hi TGMAX! I have ${item.title}. I can send photos and details.`)} target="_blank" rel="noreferrer">I have this card →</a>
       </article>)}
     </section>
     <section className="card-request">
@@ -50,7 +54,7 @@ export default async function WantedPage() {
       </div>
       <WantedRequestForm categories={categoryNames} />
     </section>
-    <section className="sell-cta"><div><span className="kicker">Not on the list?</span><h2>Show us what you have.</h2><p>Send photos of your cards on WhatsApp and we’ll get back to you with an offer.</p></div><a href={whatsapp("Hi TGMAX! I have some cards I’d like to sell or trade.")} target="_blank" rel="noreferrer">Send your cards →</a></section>
+    <section className="sell-cta"><div><span className="kicker">Not on the list?</span><h2>Show us what you have.</h2><p>Send photos of your cards on WhatsApp and we’ll get back to you with an offer.</p></div><a href={wantedWhatsapp("Hi TGMAX! I have some cards I’d like to sell or trade.")} target="_blank" rel="noreferrer">Send your cards →</a></section>
     <Footer />
   </main>;
 }
