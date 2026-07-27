@@ -37,7 +37,7 @@ export async function GET() {
   const [{ data: categories, error: categoriesError }, { data: cards, error: cardsError }, { data: users, error: usersError }, { data: options, error: optionsError }, { data: wantedCards, error: wantedError }] = await Promise.all([
     auth.admin.from("categories").select("*").order("name"),
     auth.admin.from("cards").select("*,categories(name)").order("updated_at", { ascending: false }),
-    auth.admin.from("cms_users").select("id,email,name,role,status,created_at").order("created_at"),
+    auth.admin.from("cms_users").select("id,email,username,name,role,status,created_at").order("created_at"),
     auth.admin.from("card_options").select("*").order("option_type").order("sort_order").order("label"),
     auth.admin.from("wanted_cards").select("*,categories(name)").order("sort_order").order("updated_at", { ascending: false }),
   ]);
@@ -98,11 +98,13 @@ export async function POST(request: NextRequest) {
   } else if (action === "create_user") {
     if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     const email = String(body.email ?? "").trim().toLowerCase();
+    const username = slugify(String(body.username ?? ""));
+    const password = String(body.password ?? "");
     const name = String(body.name ?? "").trim();
-    if (!email || !name) return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
-    const invite = await auth.admin.auth.admin.inviteUserByEmail(email, { data: { full_name: name }, redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=/cards` });
-    if (invite.error && !invite.error.message.toLowerCase().includes("already")) error = invite.error;
-    if (!error) ({ error } = await auth.admin.from("cms_users").insert({ email, name, role: String(body.role ?? "editor"), status: "active", auth_user_id: invite.data.user?.id ?? null }));
+    if (!email || !name || !username || password.length < 8) return NextResponse.json({ error: "Name, email, username, and a password of at least 8 characters are required" }, { status: 400 });
+    const created = await auth.admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: name } });
+    if (created.error) error = created.error;
+    if (!error) ({ error } = await auth.admin.from("cms_users").insert({ email, username, name, role: String(body.role ?? "editor"), status: "active", auth_user_id: created.data.user?.id ?? null }));
   } else if (action === "update_card") {
     const { data: previous } = await auth.admin.from("cards").select("image_key,back_image_key").eq("id", Number(body.id)).single();
     const nextImageKey = body.imageKey ? String(body.imageKey) : null;
@@ -120,7 +122,16 @@ export async function POST(request: NextRequest) {
   } else if (action === "update_user") {
     if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     if (Number(body.id) === auth.member.id && body.status === "disabled") return NextResponse.json({ error: "You cannot disable yourself" }, { status: 400 });
-    ({ error } = await auth.admin.from("cms_users").update({ name: String(body.name), role: String(body.role), status: String(body.status) }).eq("id", Number(body.id)));
+    const username = slugify(String(body.username ?? ""));
+    if (!username) return NextResponse.json({ error: "Username is required" }, { status: 400 });
+    const { data: target } = await auth.admin.from("cms_users").select("auth_user_id").eq("id", Number(body.id)).single();
+    const password = String(body.password ?? "");
+    if (password && password.length < 8) return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+    if (password && target?.auth_user_id) {
+      const updatedAuth = await auth.admin.auth.admin.updateUserById(target.auth_user_id, { password });
+      if (updatedAuth.error) error = updatedAuth.error;
+    }
+    if (!error) ({ error } = await auth.admin.from("cms_users").update({ username, name: String(body.name), role: String(body.role), status: String(body.status) }).eq("id", Number(body.id)));
   } else if (action === "update_option") {
     if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     const { data: current } = await auth.admin.from("card_options").select("option_type,value").eq("id", Number(body.id)).single();

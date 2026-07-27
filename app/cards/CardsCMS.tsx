@@ -5,7 +5,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type Category = { id: number; name: string; slug: string; accent: string; item_count: number };
 type Card = { id: number; title: string; category_id: number; category_name: string; card_code: string; image_key: string | null; image_url: string | null; back_image_key: string | null; back_image_url: string | null; price_cents: number; stock: number; condition: string; status: string };
-type User = { id: number; name: string; email: string; role: string; status: string };
+type User = { id: number; name: string; email: string; username: string | null; role: string; status: string };
 type CardOption = { id: number; option_type: "status" | "condition"; label: string; value: string; sort_order: number };
 type WantedCard = { id: number; title: string; category_id: number; category_name: string; details: string; priority: string; tone: string; status: string; sort_order: number };
 type CMSData = { currentUser: User; categories: Category[]; cards: Card[]; users: User[]; options: CardOption[]; wantedCards: WantedCard[] };
@@ -151,7 +151,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
           })}</div>
         </section>)}
       </div>}
-      {tab === "users" && <div className="user-list">{data.users.map(user => <article key={user.id}><span className="user-avatar">{user.name.slice(0, 1).toUpperCase()}</span><div><b>{user.name}</b><small>{user.email}</small></div><span className="user-role">{user.role}</span><span className={`cms-status ${user.status}`}>{user.status}</span><button onClick={() => { setEditing(user); setModal("user"); }}>Manage</button></article>)}</div>}
+      {tab === "users" && <div className="user-list">{data.users.map(user => <article key={user.id}><span className="user-avatar">{user.name.slice(0, 1).toUpperCase()}</span><div><b>{user.name}</b><small>@{user.username || "username-not-set"} · {user.email}</small></div><span className="user-role">{user.role}</span><span className={`cms-status ${user.status}`}>{user.status}</span><button onClick={() => { setEditing(user); setModal("user"); }}>Manage</button></article>)}</div>}
     </section>
 
     {modal && <div className="cms-modal-backdrop" onClick={() => { setModal(null); setEditing(null); }}><div className="cms-modal" onClick={event => event.stopPropagation()}>
@@ -163,6 +163,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
           <div className="image-upload">
             {imagePreview ? <img src={imagePreview} alt="Card front preview" /> : <div className="image-upload-empty"><b>+</b><span>Add front photo</span></div>}
             <div><label className="upload-button">Choose front<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={e => chooseImage(e.target.files?.[0])} /></label>
+              <label className="upload-button scan-button">Scan front<input type="file" accept="image/*" capture="environment" onChange={e => chooseImage(e.target.files?.[0])} /></label>
               {imagePreview && <button type="button" className="remove-image" onClick={() => { setImageFile(null); setImagePreview(""); setCardForm({ ...cardForm, imageKey: "" }); }}>Remove</button>}</div>
           </div>
         </label>
@@ -170,6 +171,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
           <div className="image-upload">
             {backImagePreview ? <img src={backImagePreview} alt="Card back preview" /> : <div className="image-upload-empty"><b>↻</b><span>Add back photo</span></div>}
             <div><label className="upload-button">Choose back<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={e => chooseBackImage(e.target.files?.[0])} /></label>
+              <label className="upload-button scan-button">Scan back<input type="file" accept="image/*" capture="environment" onChange={e => chooseBackImage(e.target.files?.[0])} /></label>
               {backImagePreview && <button type="button" className="remove-image" onClick={() => { setBackImageFile(null); setBackImagePreview(""); setCardForm({ ...cardForm, backImageKey: "" }); }}>Remove</button>}</div>
           </div>
         </label>
@@ -228,10 +230,12 @@ function CategoryForm({ category, onSubmit }: { category: Category | null; onSub
 }
 
 function UserForm({ user, onSubmit }: { user: User | null; onSubmit: (data: Record<string, unknown>) => Promise<boolean> }) {
-  const [name, setName] = useState(user?.name ?? ""); const [email, setEmail] = useState(user?.email ?? ""); const [role, setRole] = useState(user?.role ?? "editor"); const [status, setStatus] = useState(user?.status ?? "active");
-  return <form onSubmit={e => { e.preventDefault(); void onSubmit({ action: user ? "update_user" : "create_user", id: user?.id, name, email, role, status }); }}>
+  const [name, setName] = useState(user?.name ?? ""); const [email, setEmail] = useState(user?.email ?? ""); const [username, setUsername] = useState(user?.username ?? ""); const [password, setPassword] = useState(""); const [role, setRole] = useState(user?.role ?? "editor"); const [status, setStatus] = useState(user?.status ?? "active");
+  return <form onSubmit={e => { e.preventDefault(); void onSubmit({ action: user ? "update_user" : "create_user", id: user?.id, name, email, username, password, role, status }); }}>
     <label>Name<input required value={name} onChange={e => setName(e.target.value)} placeholder="Team member name" /></label>
     <label>Email<input required type="email" disabled={!!user} value={email} onChange={e => setEmail(e.target.value)} placeholder="name@example.com" /></label>
+    <label>Username<input required value={username} onChange={e => setUsername(e.target.value)} placeholder="e.g. taym-admin" /></label>
+    <label>{user ? "New password" : "Password"} <span className="field-hint">{user ? "Leave blank to keep the current password" : "Minimum 8 characters"}</span><input required={!user} minLength={8} type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" /></label>
     <div className="form-split"><label>Role<select value={role} onChange={e => setRole(e.target.value)}><option value="editor">Editor</option><option value="admin">Admin</option><option value="owner">Owner</option></select></label><label>Status<select value={status} onChange={e => setStatus(e.target.value)}><option value="active">Active</option><option value="disabled">Disabled</option></select></label></div>
     <button type="submit" className="cms-submit">{user ? "Save user" : "Add user"} →</button>
   </form>;
