@@ -2,44 +2,16 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { defaultWhatsAppSettings, loadWhatsAppSettings, whatsappUrl } from "../../../lib/whatsapp";
-import { Footer, Header, sampleProducts } from "../../shop";
+import { getSharedCard } from "../../../lib/shared-card";
+import { Footer, Header } from "../../shop";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = { params: Promise<{ id: string }> };
 
-export async function getCard(id: string) {
-  if (!/^\d+$/.test(id)) return null;
-  const admin = createAdminClient();
-  const { data } = await admin.from("cards")
-    .select("id,title,card_code,image_key,price_cents,condition,status,categories(name)")
-    .eq("id", Number(id))
-    .eq("status", "active")
-    .maybeSingle();
-  if (!data) {
-    const sample = sampleProducts.find(item => item.id === Number(id));
-    return sample ? {
-      id: sample.id,
-      title: sample.title,
-      card_code: sample.code,
-      price_cents: Math.round(sample.price * 100),
-      condition: sample.condition,
-      status: "active",
-      category: sample.series,
-      imageUrl: sample.imageUrl ?? null,
-    } : null;
-  }
-  const category = Array.isArray(data.categories) ? data.categories[0]?.name : (data.categories as { name?: string } | null)?.name;
-  return {
-    ...data,
-    category: category ?? "Trading card",
-    imageUrl: data.image_key ? admin.storage.from("card-images").getPublicUrl(data.image_key).data.publicUrl : null,
-  };
-}
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const card = await getCard(id);
+  const card = await getSharedCard(id);
   if (!card) return { title: "Card not found — TGMAX" };
   const title = `${card.title} — TGMAX`;
   const description = `${card.category} trading card · ${card.condition} · $${(card.price_cents / 100).toFixed(2).replace(/\.00$/, "")}`;
@@ -55,7 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function SharedCardPage({ params }: PageProps) {
   const { id } = await params;
-  const card = await getCard(id);
+  const card = await getSharedCard(id);
   if (!card) notFound();
   const admin = createAdminClient();
   let whatsappSettings = defaultWhatsAppSettings;
