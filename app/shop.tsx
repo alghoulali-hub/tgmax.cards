@@ -139,7 +139,14 @@ export function ShopHome({ managedProducts = [], whatsappSettings = defaultWhats
         <div className="product-grid">
           {shown.map((item) => (
             <article className="product-card" id={`card-${item.id}`} key={item.id}>
-              <div className="product-art"><span className="tag">{item.tag}</span><CardArt item={item} />{item.backImageUrl && <span className="flip-hint">Hover to flip ↻</span>}</div>
+              <div className="product-art">
+                <span className="tag">{item.tag}</span><CardArt item={item} />
+                {item.imageUrl && <div className="card-zoom-actions">
+                  <ZoomableImage src={item.imageUrl} alt={`${item.title} front`} className="side-zoom front-zoom" />
+                  {item.backImageUrl && <ZoomableImage src={item.backImageUrl} alt={`${item.title} back`} className="side-zoom back-zoom" />}
+                </div>}
+                {item.backImageUrl && <span className="flip-hint">Hover to flip ↻</span>}
+              </div>
               <div className="product-info">
                 <span>{item.series}</span><h3>{item.title}</h3>
                 <div className="price-row"><strong>{money(item.price)}</strong><span>{item.condition}</span></div>
