@@ -7,7 +7,7 @@ import { defaultWhatsAppSettings, WhatsAppSettings, whatsappUrl } from "../lib/w
 
 export type Product = { id: number; title: string; series: string; price: number; condition: string; tone: string; code: string; icon: string; tag: string; imageUrl?: string; backImageUrl?: string };
 
-const sampleProducts: Product[] = [
+export const sampleProducts: Product[] = [
   { id: 1, title: "Pikachu VMAX", series: "Pokémon", price: 48, condition: "Near mint", tone: "yellow", code: "025/185", icon: "⚡", tag: "Popular" },
   { id: 2, title: "Charizard ex", series: "Pokémon", price: 72, condition: "Near mint", tone: "orange", code: "125/197", icon: "♨", tag: "Rare" },
   { id: 3, title: "Lionel Messi", series: "FIFA", price: 35, condition: "Excellent", tone: "blue", code: "LEO 10", icon: "10", tag: "Top pick" },

@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { defaultWhatsAppSettings, loadWhatsAppSettings, whatsappUrl } from "../../../lib/whatsapp";
-import { Footer, Header } from "../../shop";
+import { Footer, Header, sampleProducts } from "../../shop";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = { params: Promise<{ id: string }> };
 
-async function getCard(id: string) {
+export async function getCard(id: string) {
   if (!/^\d+$/.test(id)) return null;
   const admin = createAdminClient();
   const { data } = await admin.from("cards")
@@ -16,7 +16,19 @@ async function getCard(id: string) {
     .eq("id", Number(id))
     .eq("status", "active")
     .maybeSingle();
-  if (!data) return null;
+  if (!data) {
+    const sample = sampleProducts.find(item => item.id === Number(id));
+    return sample ? {
+      id: sample.id,
+      title: sample.title,
+      card_code: sample.code,
+      price_cents: Math.round(sample.price * 100),
+      condition: sample.condition,
+      status: "active",
+      category: sample.series,
+      imageUrl: sample.imageUrl ?? null,
+    } : null;
+  }
   const category = Array.isArray(data.categories) ? data.categories[0]?.name : (data.categories as { name?: string } | null)?.name;
   return {
     ...data,
@@ -31,13 +43,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!card) return { title: "Card not found — TGMAX" };
   const title = `${card.title} — TGMAX`;
   const description = `${card.category} trading card · ${card.condition} · $${(card.price_cents / 100).toFixed(2).replace(/\.00$/, "")}`;
-  const images = card.imageUrl ? [{ url: card.imageUrl, alt: card.title }] : [];
+  const images = [{ url: card.imageUrl ?? `/card/${card.id}/opengraph-image`, alt: card.title }];
   return {
     title,
     description,
     alternates: { canonical: `/card/${card.id}` },
     openGraph: { title, description, url: `/card/${card.id}`, type: "website", images },
-    twitter: { card: "summary_large_image", title, description, images: card.imageUrl ? [card.imageUrl] : [] },
+    twitter: { card: "summary_large_image", title, description, images: [card.imageUrl ?? `/card/${card.id}/opengraph-image`] },
   };
 }
 
