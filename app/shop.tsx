@@ -75,6 +75,8 @@ export function ShopHome({ managedProducts = [], whatsappSettings = defaultWhats
   const [condition, setCondition] = useState("All conditions");
   const [cart, setCart] = useState<number[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState<number | null>(null);
+  const [copiedCard, setCopiedCard] = useState<number | null>(null);
   const categories = ["All cards", ...Array.from(new Set(products.map((product) => product.series)))];
   const conditions = ["All conditions", ...Array.from(new Set(products.map((product) => product.condition)))];
   const shown = useMemo(() => {
@@ -86,6 +88,23 @@ export function ShopHome({ managedProducts = [], whatsappSettings = defaultWhats
     );
   }, [products, query, category, condition]);
   const total = cart.reduce((sum, id) => sum + (products.find((p) => p.id === id)?.price ?? 0), 0);
+
+  function cardShare(item: Product) {
+    const url = `${window.location.origin}/#card-${item.id}`;
+    const text = `Check out ${item.title} on TGMAX`;
+    return {
+      url,
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+      x: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+    };
+  }
+
+  async function copyCardLink(item: Product) {
+    await navigator.clipboard.writeText(cardShare(item).url);
+    setCopiedCard(item.id);
+    window.setTimeout(() => setCopiedCard(null), 1800);
+  }
 
   return (
     <main>
@@ -119,7 +138,7 @@ export function ShopHome({ managedProducts = [], whatsappSettings = defaultWhats
         </div>
         <div className="product-grid">
           {shown.map((item) => (
-            <article className="product-card" key={item.id}>
+            <article className="product-card" id={`card-${item.id}`} key={item.id}>
               <div className="product-art"><span className="tag">{item.tag}</span><CardArt item={item} />{item.backImageUrl && <span className="flip-hint">Hover to flip ↻</span>}</div>
               <div className="product-info">
                 <span>{item.series}</span><h3>{item.title}</h3>
@@ -127,6 +146,16 @@ export function ShopHome({ managedProducts = [], whatsappSettings = defaultWhats
                 <div className="card-actions">
                   <button onClick={() => setCart([...cart, item.id])}>Add to bag</button>
                   {whatsappSettings.enabled && <a href={whatsappUrl(whatsappSettings, `${whatsappSettings.greeting} Is the ${item.title} card still available?`)} target="_blank" rel="noreferrer" aria-label={`Ask about ${item.title} on WhatsApp`}>↗</a>}
+                  <div className="share-wrap">
+                    <button className="share-trigger" type="button" aria-label={`Share ${item.title}`} aria-expanded={shareOpen === item.id} onClick={() => setShareOpen(shareOpen === item.id ? null : item.id)}>⌯</button>
+                    {shareOpen === item.id && <div className="share-menu">
+                      <b>Share this card</b>
+                      <a href={cardShare(item).whatsapp} target="_blank" rel="noreferrer">WhatsApp</a>
+                      <a href={cardShare(item).facebook} target="_blank" rel="noreferrer">Facebook</a>
+                      <a href={cardShare(item).x} target="_blank" rel="noreferrer">X / Twitter</a>
+                      <button type="button" onClick={() => void copyCardLink(item)}>{copiedCard === item.id ? "Link copied ✓" : "Copy link"}</button>
+                    </div>}
+                  </div>
                 </div>
               </div>
             </article>
