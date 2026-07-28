@@ -90,7 +90,7 @@ export function ShopHome({ managedProducts = [], whatsappSettings = defaultWhats
   const total = cart.reduce((sum, id) => sum + (products.find((p) => p.id === id)?.price ?? 0), 0);
 
   function cardShare(item: Product) {
-    const url = `${window.location.origin}/#card-${item.id}`;
+    const url = `${window.location.origin}/card/${item.id}`;
     const text = `Check out ${item.title} on TGMAX`;
     return {
       url,
@@ -147,7 +147,9 @@ export function ShopHome({ managedProducts = [], whatsappSettings = defaultWhats
                   <button onClick={() => setCart([...cart, item.id])}>Add to bag</button>
                   {whatsappSettings.enabled && <a href={whatsappUrl(whatsappSettings, `${whatsappSettings.greeting} Is the ${item.title} card still available?`)} target="_blank" rel="noreferrer" aria-label={`Ask about ${item.title} on WhatsApp`}>↗</a>}
                   <div className="share-wrap">
-                    <button className="share-trigger" type="button" aria-label={`Share ${item.title}`} aria-expanded={shareOpen === item.id} onClick={() => setShareOpen(shareOpen === item.id ? null : item.id)}>⌯</button>
+                    <button className="share-trigger" type="button" aria-label={`Share ${item.title}`} aria-expanded={shareOpen === item.id} onClick={() => setShareOpen(shareOpen === item.id ? null : item.id)}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="19" r="2.5" /><path d="m8.3 10.9 7.4-4.5M8.3 13.1l7.4 4.5" /></svg>
+                    </button>
                     {shareOpen === item.id && <div className="share-menu">
                       <b>Share this card</b>
                       <a href={cardShare(item).whatsapp} target="_blank" rel="noreferrer">WhatsApp</a>
