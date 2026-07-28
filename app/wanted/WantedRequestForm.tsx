@@ -1,17 +1,17 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { whatsapp } from "../shop";
+import { WhatsAppSettings, whatsappUrl } from "../../lib/whatsapp";
 
-export function WantedRequestForm({ categories }: { categories: string[] }) {
+export function WantedRequestForm({ categories, whatsappSettings }: { categories: string[]; whatsappSettings: WhatsAppSettings }) {
   const [cardName, setCardName] = useState("");
   const [category, setCategory] = useState(categories[0] ?? "Other");
   const [details, setDetails] = useState("");
 
   function sendRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const message = `Hi TGMAX! I’m looking for a ${category} card: ${cardName}.${details ? ` Details: ${details}` : ""}`;
-    window.open(whatsapp(message), "_blank", "noopener,noreferrer");
+    const message = `${whatsappSettings.greeting} I’m looking for a ${category} card: ${cardName}.${details ? ` Details: ${details}` : ""}`;
+    window.open(whatsappUrl(whatsappSettings, message), "_blank", "noopener,noreferrer");
   }
 
   return <form className="request-form" onSubmit={sendRequest}>

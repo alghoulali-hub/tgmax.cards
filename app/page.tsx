@@ -1,13 +1,19 @@
 import { createAdminClient } from "../lib/supabase/admin";
 import { Product, ShopHome } from "./shop";
+import { defaultWhatsAppSettings, loadWhatsAppSettings } from "../lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   let managedProducts: Product[] = [];
+  let whatsappSettings = defaultWhatsAppSettings;
   try {
     const supabase = createAdminClient();
-    const { data } = await supabase.from("cards").select("id,title,card_code,image_key,back_image_key,price_cents,condition,categories(name)").eq("status", "active").order("updated_at", { ascending: false });
+    const [{ data }, savedSettings] = await Promise.all([
+      supabase.from("cards").select("id,title,card_code,image_key,back_image_key,price_cents,condition,categories(name)").eq("status", "active").order("updated_at", { ascending: false }),
+      loadWhatsAppSettings(supabase),
+    ]);
+    whatsappSettings = savedSettings;
     const tones = ["yellow", "orange", "blue", "purple", "ice", "red"];
     managedProducts = (data ?? []).map((card, index) => {
       const category = Array.isArray(card.categories) ? card.categories[0]?.name : (card.categories as { name?: string } | null)?.name;
@@ -22,5 +28,5 @@ export default async function Home() {
   } catch {
     // Sample products remain visible until Supabase is configured.
   }
-  return <ShopHome managedProducts={managedProducts} />;
+  return <ShopHome managedProducts={managedProducts} whatsappSettings={whatsappSettings} />;
 }

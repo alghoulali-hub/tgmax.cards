@@ -34,14 +34,15 @@ function slugify(value: string) {
 export async function GET() {
   const auth = await authorize();
   if ("error" in auth) return auth.error;
-  const [{ data: categories, error: categoriesError }, { data: cards, error: cardsError }, { data: users, error: usersError }, { data: options, error: optionsError }, { data: wantedCards, error: wantedError }] = await Promise.all([
+  const [{ data: categories, error: categoriesError }, { data: cards, error: cardsError }, { data: users, error: usersError }, { data: options, error: optionsError }, { data: wantedCards, error: wantedError }, { data: settings, error: settingsError }] = await Promise.all([
     auth.admin.from("categories").select("*").order("name"),
     auth.admin.from("cards").select("*,categories(name)").order("updated_at", { ascending: false }),
     auth.admin.from("cms_users").select("id,email,username,name,role,status,created_at").order("created_at"),
     auth.admin.from("card_options").select("*").order("option_type").order("sort_order").order("label"),
     auth.admin.from("wanted_cards").select("*,categories(name)").order("sort_order").order("updated_at", { ascending: false }),
+    auth.admin.from("site_settings").select("value").eq("key", "whatsapp").maybeSingle(),
   ]);
-  const error = categoriesError || cardsError || usersError || optionsError || wantedError;
+  const error = categoriesError || cardsError || usersError || optionsError || wantedError || settingsError;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const itemCounts = new Map<number, number>();
   (cards ?? []).forEach(card => itemCounts.set(card.category_id, (itemCounts.get(card.category_id) ?? 0) + 1));
@@ -61,6 +62,7 @@ export async function GET() {
       category_name: Array.isArray(item.categories) ? item.categories[0]?.name : (item.categories as { name?: string } | null)?.name,
       image_url: item.image_key ? auth.admin.storage.from("card-images").getPublicUrl(item.image_key).data.publicUrl : null,
     })),
+    whatsappSettings: settings?.value ?? null,
   });
 }
 
@@ -106,6 +108,22 @@ export async function POST(request: NextRequest) {
     const created = await auth.admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: name } });
     if (created.error) error = created.error;
     if (!error) ({ error } = await auth.admin.from("cms_users").insert({ email, username, name, role: String(body.role ?? "editor"), status: "active", auth_user_id: created.data.user?.id ?? null }));
+  } else if (action === "update_whatsapp_settings") {
+    if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    const phoneNumber = String(body.phoneNumber ?? "").replace(/\D/g, "");
+    if (phoneNumber.length < 8 || phoneNumber.length > 15) return NextResponse.json({ error: "Enter a valid international WhatsApp number" }, { status: 400 });
+    ({ error } = await auth.admin.from("site_settings").upsert({
+      key: "whatsapp",
+      value: {
+        phone_number: phoneNumber,
+        display_number: String(body.displayNumber ?? "").trim() || `+${phoneNumber}`,
+        greeting: String(body.greeting ?? "").trim() || "Hi TGMAX!",
+        location: String(body.location ?? "").trim(),
+        reply_time: String(body.replyTime ?? "").trim(),
+        enabled: body.enabled !== false,
+      },
+      updated_at: new Date().toISOString(),
+    }));
   } else if (action === "update_card") {
     const { data: previous } = await auth.admin.from("cards").select("image_key,back_image_key").eq("id", Number(body.id)).single();
     const nextImageKey = body.imageKey ? String(body.imageKey) : null;

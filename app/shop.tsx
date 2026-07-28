@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ZoomableImage } from "./ZoomableImage";
-
-const phone = "96171234567";
+import { defaultWhatsAppSettings, WhatsAppSettings, whatsappUrl } from "../lib/whatsapp";
 
 export type Product = { id: number; title: string; series: string; price: number; condition: string; tone: string; code: string; icon: string; tag: string; imageUrl?: string; backImageUrl?: string };
 
@@ -65,15 +64,11 @@ function CardArt({ item }: { item: Product }) {
   );
 }
 
-function whatsapp(text: string) {
-  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-}
-
 function money(value: number) {
   return `$${value.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
 }
 
-export function ShopHome({ managedProducts = [] }: { managedProducts?: Product[] }) {
+export function ShopHome({ managedProducts = [], whatsappSettings = defaultWhatsAppSettings }: { managedProducts?: Product[]; whatsappSettings?: WhatsAppSettings }) {
   const products = managedProducts.length ? managedProducts : sampleProducts;
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All cards");
@@ -131,7 +126,7 @@ export function ShopHome({ managedProducts = [] }: { managedProducts?: Product[]
                 <div className="price-row"><strong>{money(item.price)}</strong><span>{item.condition}</span></div>
                 <div className="card-actions">
                   <button onClick={() => setCart([...cart, item.id])}>Add to bag</button>
-                  <a href={whatsapp(`Hi TGMAX! Is the ${item.title} card still available?`)} target="_blank" rel="noreferrer" aria-label={`Ask about ${item.title} on WhatsApp`}>↗</a>
+                  {whatsappSettings.enabled && <a href={whatsappUrl(whatsappSettings, `${whatsappSettings.greeting} Is the ${item.title} card still available?`)} target="_blank" rel="noreferrer" aria-label={`Ask about ${item.title} on WhatsApp`}>↗</a>}
                 </div>
               </div>
             </article>
@@ -140,11 +135,11 @@ export function ShopHome({ managedProducts = [] }: { managedProducts?: Product[]
         </div>
       </section>
 
-      <section className="whatsapp-band">
+      {whatsappSettings.enabled && <section className="whatsapp-band">
         <div><span className="wa-icon">◔</span><div><b>Looking for a specific card?</b><p>Send us your list and we’ll help you find it.</p></div></div>
-        <a href={whatsapp("Hi TGMAX! I’m looking for a specific trading card.")} target="_blank" rel="noreferrer">Chat on WhatsApp →</a>
-      </section>
-      <Footer />
+        <a href={whatsappUrl(whatsappSettings, `${whatsappSettings.greeting} I’m looking for a specific trading card.`)} target="_blank" rel="noreferrer">Chat on WhatsApp →</a>
+      </section>}
+      <Footer whatsappSettings={whatsappSettings} />
 
       {cartOpen && <div className="drawer-overlay" onClick={() => setCartOpen(false)}>
         <aside className="drawer" onClick={(e) => e.stopPropagation()} aria-label="Shopping bag">
@@ -153,15 +148,13 @@ export function ShopHome({ managedProducts = [] }: { managedProducts?: Product[]
           {cart.length === 0 ? <p className="empty">Your bag is waiting for a great card.</p> :
             <div className="bag-list">{cart.map((id, index) => { const p = products.find((x) => x.id === id)!; return <div key={`${id}-${index}`}><span>{p.title}<small>{p.series}</small></span><b>{money(p.price)}</b><button onClick={() => setCart(cart.filter((_, i) => i !== index))}>×</button></div>; })}</div>}
           <div className="bag-total"><span>Total</span><b>{money(total)}</b></div>
-          <a className="checkout" href={whatsapp(`Hi TGMAX! I’d like to order: ${cart.map((id) => products.find((p) => p.id === id)?.title).join(", ")}. Total: ${money(total)}.`)} target="_blank" rel="noreferrer">Order on WhatsApp</a>
+          {whatsappSettings.enabled && <a className="checkout" href={whatsappUrl(whatsappSettings, `${whatsappSettings.greeting} I’d like to order: ${cart.map((id) => products.find((p) => p.id === id)?.title).join(", ")}. Total: ${money(total)}.`)} target="_blank" rel="noreferrer">Order on WhatsApp</a>}
         </aside>
       </div>}
     </main>
   );
 }
 
-export function Footer() {
-  return <footer><Brand /><p>Trading good cards and great stories.</p><div><a href={whatsapp("Hi TGMAX!")} target="_blank" rel="noreferrer">WhatsApp</a><Link href="/contact">Contact</Link></div><small>© 2026 TGMAX. All rights reserved.</small></footer>;
+export function Footer({ whatsappSettings = defaultWhatsAppSettings }: { whatsappSettings?: WhatsAppSettings }) {
+  return <footer><Brand /><p>Trading good cards and great stories.</p><div>{whatsappSettings.enabled && <a href={whatsappUrl(whatsappSettings, whatsappSettings.greeting)} target="_blank" rel="noreferrer">WhatsApp</a>}<Link href="/contact">Contact</Link></div><small>© 2026 TGMAX. All rights reserved.</small></footer>;
 }
-
-export { phone, whatsapp };

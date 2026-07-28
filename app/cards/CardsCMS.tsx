@@ -3,20 +3,21 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { SmartScanCropper } from "./SmartScanCropper";
+import { defaultWhatsAppSettings, WhatsAppSettings } from "../../lib/whatsapp";
 
 type Category = { id: number; name: string; slug: string; accent: string; item_count: number };
 type Card = { id: number; title: string; category_id: number; category_name: string; card_code: string; image_key: string | null; image_url: string | null; back_image_key: string | null; back_image_url: string | null; price_cents: number; stock: number; condition: string; status: string };
 type User = { id: number; name: string; email: string; username: string | null; role: string; status: string };
 type CardOption = { id: number; option_type: "status" | "condition"; label: string; value: string; sort_order: number };
 type WantedCard = { id: number; title: string; category_id: number; category_name: string; details: string; priority: string; tone: string; status: string; sort_order: number; image_key: string | null; image_url: string | null };
-type CMSData = { currentUser: User; categories: Category[]; cards: Card[]; users: User[]; options: CardOption[]; wantedCards: WantedCard[] };
+type CMSData = { currentUser: User; categories: Category[]; cards: Card[]; users: User[]; options: CardOption[]; wantedCards: WantedCard[]; whatsappSettings: WhatsAppSettings | null };
 
 const emptyCard = { title: "", categoryId: "", cardCode: "", imageKey: "", backImageKey: "", price: "", stock: "1", condition: "Near mint", status: "active" };
 const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
 
 export function CardsCMS({ signedInAs }: { signedInAs: string }) {
   const [data, setData] = useState<CMSData | null>(null);
-  const [tab, setTab] = useState<"cards" | "wanted" | "categories" | "options" | "users">("cards");
+  const [tab, setTab] = useState<"cards" | "wanted" | "categories" | "options" | "users" | "whatsapp">("cards");
   const [modal, setModal] = useState<"card" | "wanted" | "category" | "option" | "user" | null>(null);
   const [editing, setEditing] = useState<Card | WantedCard | Category | CardOption | User | null>(null);
   const [cardForm, setCardForm] = useState(emptyCard);
@@ -30,12 +31,14 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
   const [inventoryCategory, setInventoryCategory] = useState("all");
   const [inventoryCondition, setInventoryCondition] = useState("all");
   const [scanRequest, setScanRequest] = useState<{ file: File; side: "front" | "back" } | null>(null);
+  const [whatsappForm, setWhatsappForm] = useState(defaultWhatsAppSettings);
 
   const load = useCallback(async () => {
     const response = await fetch("/api/cms");
     const result = await response.json() as CMSData & { error?: string };
     if (!response.ok) { setMessage(result.error ?? "Unable to load CMS"); return; }
     setData(result);
+    setWhatsappForm({ ...defaultWhatsAppSettings, ...(result.whatsappSettings ?? {}) });
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -124,13 +127,14 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
         <button className={tab === "categories" ? "active" : ""} onClick={() => setTab("categories")}><span>⌗</span> Categories <b>{data.categories.length}</b></button>
         <button className={tab === "options" ? "active" : ""} onClick={() => setTab("options")}><span>◇</span> Card options <b>{data.options.length}</b></button>
         <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}><span>◎</span> Users <b>{data.users.length}</b></button>
+        <button className={tab === "whatsapp" ? "active" : ""} onClick={() => setTab("whatsapp")}><span>◔</span> WhatsApp</button>
       </nav>
       <div className="cms-profile"><span>{signedInAs.slice(0, 1).toUpperCase()}</span><div><b>{signedInAs}</b><small>{data.currentUser.role}</small></div></div>
       <a className="cms-signout" href="/auth/signout">Sign out</a>
     </aside>
     <section className="cms-main">
-      <header className="cms-header"><div><span className="kicker">TGMAX control room</span><h1>{tab === "cards" ? "Card inventory" : tab === "wanted" ? "Wanted cards" : tab === "categories" ? "Categories" : tab === "options" ? "Card options" : "Team users"}</h1></div>
-        <button className="cms-add" onClick={() => { setEditing(null); setModal(tab === "cards" ? "card" : tab === "wanted" ? "wanted" : tab === "categories" ? "category" : tab === "options" ? "option" : "user"); if (tab === "cards") openCard(); }}>+ Add {tab === "cards" ? "card" : tab === "wanted" ? "wanted card" : tab === "categories" ? "category" : tab === "options" ? "option" : "user"}</button>
+      <header className="cms-header"><div><span className="kicker">TGMAX control room</span><h1>{tab === "cards" ? "Card inventory" : tab === "wanted" ? "Wanted cards" : tab === "categories" ? "Categories" : tab === "options" ? "Card options" : tab === "users" ? "Team users" : "WhatsApp settings"}</h1></div>
+        {tab !== "whatsapp" && <button className="cms-add" onClick={() => { setEditing(null); setModal(tab === "cards" ? "card" : tab === "wanted" ? "wanted" : tab === "categories" ? "category" : tab === "options" ? "option" : "user"); if (tab === "cards") openCard(); }}>+ Add {tab === "cards" ? "card" : tab === "wanted" ? "wanted card" : tab === "categories" ? "category" : tab === "options" ? "option" : "user"}</button>}
       </header>
       {message && <div className="cms-alert">{message}<button onClick={() => setMessage("")}>×</button></div>}
       {tab === "cards" && <>
@@ -160,6 +164,18 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
         </section>)}
       </div>}
       {tab === "users" && <div className="user-list">{data.users.map(user => <article key={user.id}><span className="user-avatar">{user.name.slice(0, 1).toUpperCase()}</span><div><b>{user.name}</b><small>@{user.username || "username-not-set"} · {user.email}</small></div><span className="user-role">{user.role}</span><span className={`cms-status ${user.status}`}>{user.status}</span><button onClick={() => { setEditing(user); setModal("user"); }}>Manage</button></article>)}</div>}
+      {tab === "whatsapp" && <form className="settings-form" onSubmit={async event => {
+        event.preventDefault();
+        const saved = await mutate({ action: "update_whatsapp_settings", phoneNumber: whatsappForm.phone_number, displayNumber: whatsappForm.display_number, greeting: whatsappForm.greeting, location: whatsappForm.location, replyTime: whatsappForm.reply_time, enabled: whatsappForm.enabled });
+        if (saved) setMessage("WhatsApp settings saved.");
+      }}>
+        <div className="settings-heading"><span className="settings-icon">◔</span><div><h2>Store WhatsApp</h2><p>These settings update every WhatsApp button across TGMAX.</p></div></div>
+        <div className="form-split"><label>WhatsApp number <span className="field-help">International format, digits only</span><input required inputMode="tel" value={whatsappForm.phone_number} onChange={event => setWhatsappForm({ ...whatsappForm, phone_number: event.target.value })} placeholder="96171234567" /></label><label>Displayed number<input required value={whatsappForm.display_number} onChange={event => setWhatsappForm({ ...whatsappForm, display_number: event.target.value })} placeholder="+961 71 234 567" /></label></div>
+        <label>Default greeting<input required value={whatsappForm.greeting} onChange={event => setWhatsappForm({ ...whatsappForm, greeting: event.target.value })} placeholder="Hi TGMAX!" /></label>
+        <div className="form-split"><label>Location<input value={whatsappForm.location} onChange={event => setWhatsappForm({ ...whatsappForm, location: event.target.value })} placeholder="Beirut, Lebanon" /></label><label>Reply-time message<input value={whatsappForm.reply_time} onChange={event => setWhatsappForm({ ...whatsappForm, reply_time: event.target.value })} placeholder="Usually within an hour" /></label></div>
+        <label className="settings-toggle"><input type="checkbox" checked={whatsappForm.enabled} onChange={event => setWhatsappForm({ ...whatsappForm, enabled: event.target.checked })} /><span><b>Enable WhatsApp buttons</b><small>Turn this off to hide contact actions from the storefront.</small></span></label>
+        <button className="cms-submit" type="submit">Save WhatsApp settings →</button>
+      </form>}
     </section>
 
     {modal && <div className="cms-modal-backdrop" onClick={() => { setModal(null); setEditing(null); }}><div className="cms-modal" onClick={event => event.stopPropagation()}>
