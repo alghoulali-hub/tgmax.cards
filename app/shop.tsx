@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { ZoomableImage } from "./ZoomableImage";
 import { defaultWhatsAppSettings, WhatsAppSettings, whatsappUrl } from "../lib/whatsapp";
 
-export type Product = { id: number; title: string; series: string; price: number; condition: string; tone: string; code: string; icon: string; tag: string; imageUrl?: string; backImageUrl?: string };
+export type Product = { id: number; title: string; series: string; price: number; condition: string; tone: string; code: string; icon: string; tag: string; tagColor?: string; imageUrl?: string; backImageUrl?: string };
 
 export const sampleProducts: Product[] = [
   { id: 1, title: "Pikachu VMAX", series: "Pokémon", price: 48, condition: "Near mint", tone: "yellow", code: "025/185", icon: "⚡", tag: "Popular" },
@@ -140,7 +140,7 @@ export function ShopHome({ managedProducts = [], whatsappSettings = defaultWhats
           {shown.map((item) => (
             <article className="product-card" id={`card-${item.id}`} key={item.id}>
               <div className="product-art">
-                <span className="tag">{item.tag}</span><CardArt item={item} />
+                {item.tag && <span className="tag" style={{ background: item.tagColor }}>{item.tag}</span>}<CardArt item={item} />
                 {item.imageUrl && <div className="card-zoom-actions">
                   <ZoomableImage src={item.imageUrl} alt={`${item.title} front`} className="side-zoom front-zoom" />
                   {item.backImageUrl && <ZoomableImage src={item.backImageUrl} alt={`${item.title} back`} className="side-zoom back-zoom" />}

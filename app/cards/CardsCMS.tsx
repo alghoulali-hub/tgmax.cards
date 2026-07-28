@@ -6,20 +6,21 @@ import { SmartScanCropper } from "./SmartScanCropper";
 import { defaultWhatsAppSettings, WhatsAppSettings } from "../../lib/whatsapp";
 
 type Category = { id: number; name: string; slug: string; accent: string; item_count: number };
-type Card = { id: number; title: string; category_id: number; category_name: string; card_code: string; image_key: string | null; image_url: string | null; back_image_key: string | null; back_image_url: string | null; price_cents: number; stock: number; condition: string; status: string };
+type Card = { id: number; title: string; category_id: number; category_name: string; card_code: string; image_key: string | null; image_url: string | null; back_image_key: string | null; back_image_url: string | null; price_cents: number; stock: number; condition: string; status: string; label_id: number | null; label_name: string | null; label_color: string | null };
+type CardLabel = { id: number; name: string; color: string };
 type User = { id: number; name: string; email: string; username: string | null; role: string; status: string };
 type CardOption = { id: number; option_type: "status" | "condition"; label: string; value: string; sort_order: number };
 type WantedCard = { id: number; title: string; category_id: number; category_name: string; details: string; priority: string; tone: string; status: string; sort_order: number; image_key: string | null; image_url: string | null };
-type CMSData = { currentUser: User; categories: Category[]; cards: Card[]; users: User[]; options: CardOption[]; wantedCards: WantedCard[]; whatsappSettings: WhatsAppSettings | null };
+type CMSData = { currentUser: User; categories: Category[]; cards: Card[]; users: User[]; options: CardOption[]; wantedCards: WantedCard[]; whatsappSettings: WhatsAppSettings | null; labels: CardLabel[] };
 
-const emptyCard = { title: "", categoryId: "", cardCode: "", imageKey: "", backImageKey: "", price: "", stock: "1", condition: "Near mint", status: "active" };
+const emptyCard = { title: "", categoryId: "", cardCode: "", imageKey: "", backImageKey: "", price: "", stock: "1", condition: "Near mint", status: "active", labelId: "" };
 const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}`;
 
 export function CardsCMS({ signedInAs }: { signedInAs: string }) {
   const [data, setData] = useState<CMSData | null>(null);
-  const [tab, setTab] = useState<"cards" | "wanted" | "categories" | "options" | "users" | "whatsapp">("cards");
-  const [modal, setModal] = useState<"card" | "wanted" | "category" | "option" | "user" | null>(null);
-  const [editing, setEditing] = useState<Card | WantedCard | Category | CardOption | User | null>(null);
+  const [tab, setTab] = useState<"cards" | "wanted" | "categories" | "options" | "labels" | "users" | "whatsapp">("cards");
+  const [modal, setModal] = useState<"card" | "wanted" | "category" | "option" | "label" | "user" | null>(null);
+  const [editing, setEditing] = useState<Card | WantedCard | Category | CardOption | CardLabel | User | null>(null);
   const [cardForm, setCardForm] = useState(emptyCard);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState("");
@@ -53,7 +54,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
 
   function openCard(card?: Card) {
     setEditing(card ?? null);
-    setCardForm(card ? { title: card.title, categoryId: String(card.category_id), cardCode: card.card_code, imageKey: card.image_key ?? "", backImageKey: card.back_image_key ?? "", price: String(card.price_cents / 100), stock: String(card.stock), condition: card.condition, status: card.status } : { ...emptyCard, categoryId: String(data?.categories[0]?.id ?? "") });
+    setCardForm(card ? { title: card.title, categoryId: String(card.category_id), cardCode: card.card_code, imageKey: card.image_key ?? "", backImageKey: card.back_image_key ?? "", price: String(card.price_cents / 100), stock: String(card.stock), condition: card.condition, status: card.status, labelId: String(card.label_id ?? "") } : { ...emptyCard, categoryId: String(data?.categories[0]?.id ?? "") });
     setImageFile(null);
     setBackImageFile(null);
     setImagePreview(card?.image_url ?? "");
@@ -126,6 +127,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
         <button className={tab === "wanted" ? "active" : ""} onClick={() => setTab("wanted")}><span>♡</span> Wanted cards <b>{data.wantedCards.length}</b></button>
         <button className={tab === "categories" ? "active" : ""} onClick={() => setTab("categories")}><span>⌗</span> Categories <b>{data.categories.length}</b></button>
         <button className={tab === "options" ? "active" : ""} onClick={() => setTab("options")}><span>◇</span> Card options <b>{data.options.length}</b></button>
+        <button className={tab === "labels" ? "active" : ""} onClick={() => setTab("labels")}><span>◆</span> Labels <b>{data.labels.length}</b></button>
         <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}><span>◎</span> Users <b>{data.users.length}</b></button>
         <button className={tab === "whatsapp" ? "active" : ""} onClick={() => setTab("whatsapp")}><span>◔</span> WhatsApp</button>
       </nav>
@@ -133,8 +135,8 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
       <a className="cms-signout" href="/auth/signout">Sign out</a>
     </aside>
     <section className="cms-main">
-      <header className="cms-header"><div><span className="kicker">TGMAX control room</span><h1>{tab === "cards" ? "Card inventory" : tab === "wanted" ? "Wanted cards" : tab === "categories" ? "Categories" : tab === "options" ? "Card options" : tab === "users" ? "Team users" : "WhatsApp settings"}</h1></div>
-        {tab !== "whatsapp" && <button className="cms-add" onClick={() => { setEditing(null); setModal(tab === "cards" ? "card" : tab === "wanted" ? "wanted" : tab === "categories" ? "category" : tab === "options" ? "option" : "user"); if (tab === "cards") openCard(); }}>+ Add {tab === "cards" ? "card" : tab === "wanted" ? "wanted card" : tab === "categories" ? "category" : tab === "options" ? "option" : "user"}</button>}
+      <header className="cms-header"><div><span className="kicker">TGMAX control room</span><h1>{tab === "cards" ? "Card inventory" : tab === "wanted" ? "Wanted cards" : tab === "categories" ? "Categories" : tab === "options" ? "Card options" : tab === "labels" ? "Card labels" : tab === "users" ? "Team users" : "WhatsApp settings"}</h1></div>
+        {tab !== "whatsapp" && <button className="cms-add" onClick={() => { setEditing(null); setModal(tab === "cards" ? "card" : tab === "wanted" ? "wanted" : tab === "categories" ? "category" : tab === "options" ? "option" : tab === "labels" ? "label" : "user"); if (tab === "cards") openCard(); }}>+ Add {tab === "cards" ? "card" : tab === "wanted" ? "wanted card" : tab === "categories" ? "category" : tab === "options" ? "option" : tab === "labels" ? "label" : "user"}</button>}
       </header>
       {message && <div className="cms-alert">{message}<button onClick={() => setMessage("")}>×</button></div>}
       {tab === "cards" && <>
@@ -163,6 +165,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
           })}</div>
         </section>)}
       </div>}
+      {tab === "labels" && <div className="category-admin-grid">{data.labels.map(label => <article key={label.id}><span className="cat-swatch" style={{ background: label.color }} /><small>Card badge</small><h2>{label.name}</h2><p>{data.cards.filter(card => card.label_id === label.id).length} cards</p><div><button onClick={() => { setEditing(label); setModal("label"); }}>Edit</button><button onClick={() => void mutate({ action: "delete_label", id: label.id })}>Delete</button></div></article>)}{!data.labels.length && <p className="cms-empty">Add labels such as New, Rare, or Featured.</p>}</div>}
       {tab === "users" && <div className="user-list">{data.users.map(user => <article key={user.id}><span className="user-avatar">{user.name.slice(0, 1).toUpperCase()}</span><div><b>{user.name}</b><small>@{user.username || "username-not-set"} · {user.email}</small></div><span className="user-role">{user.role}</span><span className={`cms-status ${user.status}`}>{user.status}</span><button onClick={() => { setEditing(user); setModal("user"); }}>Manage</button></article>)}</div>}
       {tab === "whatsapp" && <form className="settings-form" onSubmit={async event => {
         event.preventDefault();
@@ -180,7 +183,7 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
 
     {modal && <div className="cms-modal-backdrop" onClick={() => { setModal(null); setEditing(null); }}><div className="cms-modal" onClick={event => event.stopPropagation()}>
       <button className="cms-modal-close" onClick={() => { setModal(null); setEditing(null); }}>×</button>
-      <span className="kicker">{editing ? "Update record" : "Create new"}</span><h2>{modal === "card" ? `${editing ? "Edit" : "Add"} card` : modal === "wanted" ? `${editing ? "Edit" : "Add"} wanted card` : modal === "category" ? `${editing ? "Edit" : "Add"} category` : modal === "option" ? `${editing ? "Edit" : "Add"} card option` : `${editing ? "Manage" : "Add"} user`}</h2>
+      <span className="kicker">{editing ? "Update record" : "Create new"}</span><h2>{modal === "card" ? `${editing ? "Edit" : "Add"} card` : modal === "wanted" ? `${editing ? "Edit" : "Add"} wanted card` : modal === "category" ? `${editing ? "Edit" : "Add"} category` : modal === "option" ? `${editing ? "Edit" : "Add"} card option` : modal === "label" ? `${editing ? "Edit" : "Add"} label` : `${editing ? "Manage" : "Add"} user`}</h2>
       {modal === "card" && <form onSubmit={submitCard}>
         <div className="image-fields">
         <label>Front photo <span className="field-hint">Required for clean display</span>
@@ -204,11 +207,13 @@ export function CardsCMS({ signedInAs }: { signedInAs: string }) {
         <div className="form-split"><label>Category<select required value={cardForm.categoryId} onChange={e => setCardForm({ ...cardForm, categoryId: e.target.value })}><option value="">Choose…</option>{data.categories.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label><label>Card code<input value={cardForm.cardCode} onChange={e => setCardForm({ ...cardForm, cardCode: e.target.value })} placeholder="125/197" /></label></div>
         <div className="form-split"><label>Price ($)<input required type="number" min="0" step=".01" value={cardForm.price} onChange={e => setCardForm({ ...cardForm, price: e.target.value })} /></label><label>Stock<input required type="number" min="0" value={cardForm.stock} onChange={e => setCardForm({ ...cardForm, stock: e.target.value })} /></label></div>
         <div className="form-split"><label>Condition<select value={cardForm.condition} onChange={e => setCardForm({ ...cardForm, condition: e.target.value })}>{data.options.filter(option => option.option_type === "condition").map(option => <option value={option.value} key={option.id}>{option.label}</option>)}</select></label><label>Status<select value={cardForm.status} onChange={e => setCardForm({ ...cardForm, status: e.target.value })}>{data.options.filter(option => option.option_type === "status").map(option => <option value={option.value} key={option.id}>{option.label}</option>)}</select></label></div>
+        <label>Card label<select value={cardForm.labelId} onChange={e => setCardForm({ ...cardForm, labelId: e.target.value })}><option value="">No label</option>{data.labels.map(label => <option value={label.id} key={label.id}>{label.name}</option>)}</select></label>
         <button type="submit" className="cms-submit" disabled={uploading}>{uploading ? "Uploading photo…" : editing ? "Save changes →" : "Add to inventory →"}</button>
       </form>}
       {modal === "category" && <CategoryForm category={editing as Category | null} onSubmit={mutate} />}
       {modal === "wanted" && <WantedCardForm wantedCard={editing as WantedCard | null} categories={data.categories} onSubmit={mutate} />}
       {modal === "option" && <OptionForm option={editing as CardOption | null} onSubmit={mutate} />}
+      {modal === "label" && <LabelForm label={editing as CardLabel | null} onSubmit={mutate} />}
       {modal === "user" && <UserForm user={editing as User | null} onSubmit={mutate} />}
     </div></div>}
     {scanRequest && <SmartScanCropper file={scanRequest.file} onCancel={() => setScanRequest(null)} onComplete={file => {
@@ -275,6 +280,16 @@ function CategoryForm({ category, onSubmit }: { category: Category | null; onSub
     <label>Category name<input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Basketball" /></label>
     <label>Accent color<div className="color-field"><input type="color" value={accent} onChange={e => setAccent(e.target.value)} /><input value={accent} onChange={e => setAccent(e.target.value)} /></div></label>
     <button type="submit" className="cms-submit">{category ? "Save changes" : "Add category"} →</button>
+  </form>;
+}
+
+function LabelForm({ label, onSubmit }: { label: CardLabel | null; onSubmit: (data: Record<string, unknown>) => Promise<boolean> }) {
+  const [name, setName] = useState(label?.name ?? "");
+  const [color, setColor] = useState(label?.color ?? "#d8ff3e");
+  return <form onSubmit={e => { e.preventDefault(); void onSubmit({ action: label ? "update_label" : "create_label", id: label?.id, name, color }); }}>
+    <label>Label name<input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. New, Rare, Featured" /></label>
+    <label>Badge color<div className="color-field"><input type="color" value={color} onChange={e => setColor(e.target.value)} /><input value={color} onChange={e => setColor(e.target.value)} /></div></label>
+    <button type="submit" className="cms-submit">{label ? "Save label" : "Add label"} →</button>
   </form>;
 }
 

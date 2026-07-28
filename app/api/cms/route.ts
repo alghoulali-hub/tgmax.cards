@@ -34,15 +34,16 @@ function slugify(value: string) {
 export async function GET() {
   const auth = await authorize();
   if ("error" in auth) return auth.error;
-  const [{ data: categories, error: categoriesError }, { data: cards, error: cardsError }, { data: users, error: usersError }, { data: options, error: optionsError }, { data: wantedCards, error: wantedError }, { data: settings, error: settingsError }] = await Promise.all([
+  const [{ data: categories, error: categoriesError }, { data: cards, error: cardsError }, { data: users, error: usersError }, { data: options, error: optionsError }, { data: wantedCards, error: wantedError }, { data: settings, error: settingsError }, { data: labels, error: labelsError }] = await Promise.all([
     auth.admin.from("categories").select("*").order("name"),
-    auth.admin.from("cards").select("*,categories(name)").order("updated_at", { ascending: false }),
+    auth.admin.from("cards").select("*,categories(name),card_labels(name,color)").order("updated_at", { ascending: false }),
     auth.admin.from("cms_users").select("id,email,username,name,role,status,created_at").order("created_at"),
     auth.admin.from("card_options").select("*").order("option_type").order("sort_order").order("label"),
     auth.admin.from("wanted_cards").select("*,categories(name)").order("sort_order").order("updated_at", { ascending: false }),
     auth.admin.from("site_settings").select("value").eq("key", "whatsapp").maybeSingle(),
+    auth.admin.from("card_labels").select("*").order("name"),
   ]);
-  const error = categoriesError || cardsError || usersError || optionsError || wantedError || settingsError;
+  const error = categoriesError || cardsError || usersError || optionsError || wantedError || settingsError || labelsError;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const itemCounts = new Map<number, number>();
   (cards ?? []).forEach(card => itemCounts.set(card.category_id, (itemCounts.get(card.category_id) ?? 0) + 1));
@@ -54,6 +55,8 @@ export async function GET() {
       category_name: Array.isArray(card.categories) ? card.categories[0]?.name : (card.categories as { name?: string } | null)?.name,
       image_url: card.image_key ? auth.admin.storage.from("card-images").getPublicUrl(card.image_key).data.publicUrl : null,
       back_image_url: card.back_image_key ? auth.admin.storage.from("card-images").getPublicUrl(card.back_image_key).data.publicUrl : null,
+      label_name: Array.isArray(card.card_labels) ? card.card_labels[0]?.name : card.card_labels?.name,
+      label_color: Array.isArray(card.card_labels) ? card.card_labels[0]?.color : card.card_labels?.color,
     })),
     users: users ?? [],
     options: options ?? [],
@@ -63,6 +66,7 @@ export async function GET() {
       image_url: item.image_key ? auth.admin.storage.from("card-images").getPublicUrl(item.image_key).data.publicUrl : null,
     })),
     whatsappSettings: settings?.value ?? null,
+    labels: labels ?? [],
   });
 }
 
@@ -78,12 +82,15 @@ export async function POST(request: NextRequest) {
     const name = String(body.name ?? "").trim();
     if (!name) return NextResponse.json({ error: "Category name is required" }, { status: 400 });
     ({ error } = await auth.admin.from("categories").insert({ name, slug: slugify(name), accent: String(body.accent ?? "#d8ff3e") }));
+  } else if (action === "create_label") {
+    if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    ({ error } = await auth.admin.from("card_labels").insert({ name: String(body.name ?? "").trim(), color: String(body.color ?? "#d8ff3e") }));
   } else if (action === "create_card") {
     ({ error } = await auth.admin.from("cards").insert({
       title: String(body.title ?? "").trim(), category_id: Number(body.categoryId), card_code: String(body.cardCode ?? "").trim(),
       image_key: body.imageKey ? String(body.imageKey) : null, back_image_key: body.backImageKey ? String(body.backImageKey) : null,
       price_cents: Math.round(Number(body.price ?? 0) * 100),
-      stock: Math.max(0, Number(body.stock ?? 0)), condition: String(body.condition ?? "Near mint"), status: String(body.status ?? "active"),
+      stock: Math.max(0, Number(body.stock ?? 0)), condition: String(body.condition ?? "Near mint"), status: String(body.status ?? "active"), label_id: body.labelId ? Number(body.labelId) : null,
     }));
   } else if (action === "create_option") {
     if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
@@ -131,13 +138,16 @@ export async function POST(request: NextRequest) {
     ({ error } = await auth.admin.from("cards").update({
       title: String(body.title), category_id: Number(body.categoryId), card_code: String(body.cardCode ?? ""), image_key: nextImageKey, back_image_key: nextBackImageKey,
       price_cents: Math.round(Number(body.price) * 100), stock: Math.max(0, Number(body.stock)), condition: String(body.condition),
-      status: String(body.status), updated_at: new Date().toISOString(),
+      status: String(body.status), label_id: body.labelId ? Number(body.labelId) : null, updated_at: new Date().toISOString(),
     }).eq("id", Number(body.id)));
     if (!error && previous?.image_key && previous.image_key !== nextImageKey) await auth.admin.storage.from("card-images").remove([previous.image_key]);
     if (!error && previous?.back_image_key && previous.back_image_key !== nextBackImageKey) await auth.admin.storage.from("card-images").remove([previous.back_image_key]);
   } else if (action === "update_category") {
     const name = String(body.name ?? "").trim();
     ({ error } = await auth.admin.from("categories").update({ name, slug: slugify(name), accent: String(body.accent ?? "#d8ff3e") }).eq("id", Number(body.id)));
+  } else if (action === "update_label") {
+    if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    ({ error } = await auth.admin.from("card_labels").update({ name: String(body.name ?? "").trim(), color: String(body.color ?? "#d8ff3e") }).eq("id", Number(body.id)));
   } else if (action === "update_user") {
     if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     if (Number(body.id) === auth.member.id && body.status === "disabled") return NextResponse.json({ error: "You cannot disable yourself" }, { status: 400 });
@@ -179,6 +189,9 @@ export async function POST(request: NextRequest) {
   } else if (action === "delete_category") {
     if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     ({ error } = await auth.admin.from("categories").delete().eq("id", Number(body.id)));
+  } else if (action === "delete_label") {
+    if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    ({ error } = await auth.admin.from("card_labels").delete().eq("id", Number(body.id)));
   } else if (action === "delete_option") {
     if (!elevated) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     const { data: option } = await auth.admin.from("card_options").select("option_type,value").eq("id", Number(body.id)).single();
